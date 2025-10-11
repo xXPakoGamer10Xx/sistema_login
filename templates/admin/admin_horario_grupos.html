@@ -1,66 +1,88 @@
-<!-- templates/admin/admin_horario_grupos.html -->
 {% extends "base.html" %}
 
 {% block content %}
 <div class="container mt-5">
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>Horario Semanal por Grupo</h3>
-    
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-0">Horario Semanal por Grupo (Admin)</h3>
+            <small class="text-muted">Busca y exporta horarios de forma individual.</small>
+        </div>
         <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Regresar al Dashboard
+            <i class="fas fa-arrow-left me-1"></i> Regresar
         </a>
+    </div>
 
-        <div class="btn-group">
-            <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fas fa-download me-1"></i> Exportar
-            </button>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="{{ url_for('exportar_horarios_grupo_excel') }}"><i class="fas fa-file-excel me-2 text-success"></i>Exportar a Excel</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('exportar_horarios_grupo_pdf') }}"><i class="fas fa-file-pdf me-2 text-danger"></i>Exportar a PDF</a></li>
-            </ul>
+    <div class="mb-3">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="searchInput" class="form-control" placeholder="Buscar por código de grupo...">
         </div>
     </div>
-</div>
     
     <div class="card shadow-sm">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered table-striped text-center">
-                    <thead class="thead-dark">
+                <table class="table table-bordered table-hover text-center align-middle">
+                    <thead class="table-dark">
                         <tr>
-                            <th style="width: 15%;">Grupo</th>
+                            <th style="width: 20%;">Grupo</th>
                             <th>Lunes</th>
                             <th>Martes</th>
                             <th>Miércoles</th>
                             <th>Jueves</th>
                             <th>Viernes</th>
+                            <th style="width: 10%;">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="horariosTableBody">
                         {% for grupo, dias in horarios_data.items() %}
-                        <tr>
-                            <td class="align-middle"><strong>{{ grupo }}</strong></td>
-                            
-                            <!-- Bucle para cada día de la semana -->
-                            {% for dia in ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'] %}
+                        <tr class="schedule-row">
+                            <td class="row-name"><strong>{{ grupo }}</strong></td>
+                             {% for dia_semana in ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'] %}
                             <td>
-                                {% for clase in dias[dia] %}
-                                    <div class="alert alert-info p-2 mb-1 border small">{{ clase | safe }}</div>
+                                {% for clase in dias[dia_semana] %}
+                                    <div class="clase-item p-2 mb-1 border rounded bg-light small">{{ clase | safe }}</div>
                                 {% endfor %}
                             </td>
                             {% endfor %}
-
+                            <td>
+                                <a href="{{ url_for('exportar_horario_individual_excel', nombre_grupo=grupo) }}" 
+                                   class="btn btn-sm btn-outline-success" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Exportar horario de {{ grupo }} a Excel">
+                                    <i class="fas fa-file-excel"></i>
+                                </a>
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center">No hay horarios registrados para mostrar.</td>
+                            <td colspan="7" class="text-center p-4">No hay horarios registrados.</td>
                         </tr>
                         {% endfor %}
+                        <tr id="noResultsRow" style="display: none;">
+                            <td colspan="7" class="text-center p-4">No se encontraron resultados para su búsqueda.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// El mismo script de la vista anterior para búsqueda y tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
+    const searchInput = document.getElementById('searchInput'), tableBody = document.getElementById('horariosTableBody'), rows = tableBody.getElementsByClassName('schedule-row'), noResultsRow = document.getElementById('noResultsRow');
+    searchInput.addEventListener('keyup', function() {
+        const filter = searchInput.value.toLowerCase(); let visibleRows = 0;
+        for (let row of rows) {
+            const nameCell = row.getElementsByClassName('row-name')[0];
+            if (nameCell && (nameCell.textContent || nameCell.innerText).toLowerCase().indexOf(filter) > -1) { row.style.display = ""; visibleRows++; } else { row.style.display = "none"; }
+        }
+        noResultsRow.style.display = (visibleRows === 0 && rows.length > 0) ? "" : "none";
+    });
+});
+</script>
 {% endblock %}
