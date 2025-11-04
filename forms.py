@@ -722,11 +722,18 @@ class EditarUsuarioForm(FlaskForm):
         ('', 'Seleccione un rol'),
         ('admin', 'Administrador'),
         ('jefe_carrera', 'Jefe de Carrera'),
-        ('profesor_completo', 'Profesor de Tiempo Completo'),
-        ('profesor_asignatura', 'Profesor por Asignatura')
+        ('profesor', 'Profesor')
     ], validators=[DataRequired(message='Debe seleccionar un rol')])
 
-    carrera = SelectField('Carrera', validators=[Optional()])
+    tipo_profesor = SelectField('Tipo de Profesor', choices=[
+        ('', 'Seleccione tipo de profesor'),
+        ('profesor_completo', 'Profesor de Tiempo Completo'),
+        ('profesor_asignatura', 'Profesor por Asignatura')
+    ])
+
+    carrera = SelectField('Carrera (Jefe de Carrera)', validators=[Optional()])
+    
+    carreras = SelectMultipleField('Carreras (Profesores)', coerce=int, validators=[Optional()])
 
     activo = BooleanField('Usuario Activo')
 
@@ -736,9 +743,14 @@ class EditarUsuarioForm(FlaskForm):
         super(EditarUsuarioForm, self).__init__(*args, **kwargs)
         self.user = user
         # Llenar opciones de carreras
+        carreras_activas = Carrera.query.filter_by(activa=True).order_by(Carrera.nombre).all()
         self.carrera.choices = [('', 'Seleccione una carrera')] + [
             (str(c.id), f"{c.codigo} - {c.nombre}")
-            for c in Carrera.query.filter_by(activa=True).order_by(Carrera.nombre).all()
+            for c in carreras_activas
+        ]
+        self.carreras.choices = [
+            (c.id, f"{c.codigo} - {c.nombre}")
+            for c in carreras_activas
         ]
 
     def validate_username(self, username):
@@ -753,13 +765,15 @@ class EditarUsuarioForm(FlaskForm):
         if user and user.id != self.user.id:
             raise ValidationError('Este email ya está registrado. Elija uno diferente.')
 
+    def validate_tipo_profesor(self, tipo_profesor):
+        """Validar tipo de profesor si se seleccionó profesor como rol"""
+        if self.rol.data == 'profesor' and not tipo_profesor.data:
+            raise ValidationError('Debe seleccionar el tipo de profesor.')
+
     def validate_carrera(self, carrera):
-        """Validar carrera si se seleccionó profesor o jefe de carrera como rol"""
-        if self.rol.data in ['profesor_completo', 'profesor_asignatura', 'jefe_carrera'] and not carrera.data:
-            if self.rol.data == 'jefe_carrera':
-                raise ValidationError('Los jefes de carrera deben seleccionar una carrera.')
-            else:
-                raise ValidationError('Los profesores deben seleccionar una carrera.')
+        """Validar carrera si se seleccionó jefe de carrera como rol"""
+        if self.rol.data == 'jefe_carrera' and not carrera.data:
+            raise ValidationError('Los jefes de carrera deben seleccionar una carrera.')
         
         # Validar que no haya otro jefe de carrera para la misma carrera (excepto el usuario actual)
         if self.rol.data == 'jefe_carrera' and carrera.data:
@@ -771,6 +785,17 @@ class EditarUsuarioForm(FlaskForm):
             if existing_jefe and existing_jefe.id != self.user.id:
                 carrera_obj = Carrera.query.get(int(carrera.data))
                 raise ValidationError(f'Ya existe un jefe de carrera para {carrera_obj.nombre if carrera_obj else "esta carrera"}.')
+
+    def validate_carreras(self, carreras):
+        """Validar carreras si se seleccionó profesor como rol"""
+        if self.rol.data == 'profesor' and (not carreras.data or len(carreras.data) == 0):
+            raise ValidationError('Los profesores deben seleccionar al menos una carrera.')
+
+    def get_final_rol(self):
+        """Obtener el rol final considerando el tipo de profesor"""
+        if self.rol.data == 'profesor' and self.tipo_profesor.data:
+            return self.tipo_profesor.data
+        return self.rol.data
 
 class EliminarUsuarioForm(FlaskForm):
     """Formulario para confirmar eliminación de usuario"""
@@ -886,3 +911,35 @@ class AsignarMateriasGrupoForm(FlaskForm):
             (m.id, f"{m.codigo} - {m.nombre} ({m.creditos} créditos)")
             for m in materias_disponibles
         ]
+
+class CambiarPasswordProfesorForm(FlaskForm):
+    """Formulario para que el administrador cambie la contraseña de un profesor"""
+    nueva_password = PasswordField('Nueva Contraseña', validators=[
+        DataRequired(message='La contraseña es obligatoria'),
+        Length(min=6, message='La contraseña debe tener al menos 6 caracteres')
+    ])
+    
+    confirmar_password = PasswordField('Confirmar Nueva Contraseña', validators=[
+        DataRequired(message='Debe confirmar la contraseña'),
+        EqualTo('nueva_password', message='Las contraseñas deben coincidir')
+    ])
+    
+    submit = SubmitField('Cambiar Contraseña')
+
+class CambiarPasswordObligatorioForm(FlaskForm):
+    """Formulario para cambio obligatorio de contraseña temporal"""
+    password_actual = PasswordField('Contraseña Temporal Actual', validators=[
+        DataRequired(message='La contraseña actual es obligatoria')
+    ])
+    
+    nueva_password = PasswordField('Nueva Contraseña', validators=[
+        DataRequired(message='La nueva contraseña es obligatoria'),
+        Length(min=6, message='La contraseña debe tener al menos 6 caracteres')
+    ])
+    
+    confirmar_password = PasswordField('Confirmar Nueva Contraseña', validators=[
+        DataRequired(message='Debe confirmar la contraseña'),
+        EqualTo('nueva_password', message='Las contraseñas deben coincidir')
+    ])
+    
+    submit = SubmitField('Cambiar Contraseña')

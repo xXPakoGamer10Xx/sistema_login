@@ -170,13 +170,33 @@
                                 {% endif %}
                             </div>
 
-                            <div class="col-md-6 mb-3" id="carreraDiv">
+                            <div class="col-md-6 mb-3" id="tipoProfesorDiv" style="display: none;">
+                                {{ form.tipo_profesor.label(class="form-label") }}
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                    </span>
+                                    {{ form.tipo_profesor(class="form-select", id="tipoProfesorSelect") }}
+                                </div>
+                                {% if form.tipo_profesor.errors %}
+                                    {% for error in form.tipo_profesor.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                                <div class="form-text">
+                                    Selecciona si es de tiempo completo o por asignatura
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12 mb-3" id="carreraJefeDiv" style="display: none;">
                                 {{ form.carrera.label(class="form-label") }}
                                 <div class="input-group">
                                     <span class="input-group-text">
                                         <i class="fas fa-graduation-cap"></i>
                                     </span>
-                                    {{ form.carrera(class="form-select") }}
+                                    {{ form.carrera(class="form-select", id="carreraSelect") }}
                                 </div>
                                 {% if form.carrera.errors %}
                                     {% for error in form.carrera.errors %}
@@ -184,7 +204,25 @@
                                     {% endfor %}
                                 {% endif %}
                                 <div class="form-text">
-                                    Obligatorio para profesores y jefes de carrera
+                                    Obligatorio para jefes de carrera
+                                </div>
+                            </div>
+
+                            <div class="col-md-12 mb-3" id="carrerasProfesorDiv" style="display: none;">
+                                {{ form.carreras.label(class="form-label") }}
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-graduation-cap"></i>
+                                    </span>
+                                    {{ form.carreras(class="form-select", multiple=true, id="carrerasSelect", size="5") }}
+                                </div>
+                                {% if form.carreras.errors %}
+                                    {% for error in form.carreras.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                                <div class="form-text">
+                                    Mantén presionada la tecla Ctrl (Windows/Linux) o Cmd (Mac) para seleccionar múltiples carreras
                                 </div>
                             </div>
                         </div>
@@ -243,36 +281,53 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Función para mostrar/ocultar campo de carrera basado en el rol
-    function toggleCarreraField() {
+    // Función para mostrar/ocultar campos basado en el rol y tipo de profesor
+    function toggleFields() {
         const rolSelect = document.getElementById('rolSelect');
-        const carreraDiv = document.getElementById('carreraDiv');
+        const tipoProfesorDiv = document.getElementById('tipoProfesorDiv');
+        const carreraJefeDiv = document.getElementById('carreraJefeDiv');
+        const carrerasProfesorDiv = document.getElementById('carrerasProfesorDiv');
+        const tipoProfesorSelect = document.getElementById('tipoProfesorSelect');
 
-        if (rolSelect && carreraDiv) {
-            const selectedRol = rolSelect.value;
-            if (selectedRol === 'profesor_completo' || selectedRol === 'profesor_asignatura' || selectedRol === 'jefe_carrera') {
-                carreraDiv.style.display = 'block';
-                // Hacer el campo requerido
-                document.getElementById('carrera').setAttribute('required', 'required');
-            } else {
-                carreraDiv.style.display = 'none';
-                // Quitar el atributo requerido
-                document.getElementById('carrera').removeAttribute('required');
-                // Limpiar el valor cuando se oculta
-                document.getElementById('carrera').value = '';
+        if (!rolSelect) return;
+
+        const selectedRol = rolSelect.value;
+
+        // Ocultar todos por defecto
+        tipoProfesorDiv.style.display = 'none';
+        carreraJefeDiv.style.display = 'none';
+        carrerasProfesorDiv.style.display = 'none';
+
+        if (selectedRol === 'profesor') {
+            // Mostrar selector de tipo de profesor
+            tipoProfesorDiv.style.display = 'block';
+            
+            // Si hay un tipo de profesor seleccionado, mostrar carreras
+            if (tipoProfesorSelect && tipoProfesorSelect.value) {
+                carrerasProfesorDiv.style.display = 'block';
             }
+        } else if (selectedRol === 'jefe_carrera') {
+            // Mostrar selector de carrera única para jefe
+            carreraJefeDiv.style.display = 'block';
         }
     }
 
-    // Event listener para cambios en el rol
+    // Event listeners
     const rolSelect = document.getElementById('rolSelect');
+    const tipoProfesorSelect = document.getElementById('tipoProfesorSelect');
+    
     if (rolSelect) {
-        rolSelect.addEventListener('change', toggleCarreraField);
-        // Ejecutar al cargar la página
-        toggleCarreraField();
+        rolSelect.addEventListener('change', toggleFields);
     }
+    
+    if (tipoProfesorSelect) {
+        tipoProfesorSelect.addEventListener('change', toggleFields);
+    }
+    
+    // Ejecutar al cargar la página
+    toggleFields();
 
-    // Auto-mayúsculas para el nombre de usuario
+    // Auto-minúsculas para el nombre de usuario
     const usernameInput = document.getElementById('username');
     if (usernameInput) {
         usernameInput.addEventListener('input', function() {

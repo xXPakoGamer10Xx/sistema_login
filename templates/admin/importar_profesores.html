@@ -67,27 +67,33 @@
                     <div class="col-md-6">
                         <h6>Columnas Requeridas</h6>
                         <ul class="list-unstyled">
-                            <li><i class="fas fa-check text-success me-2"></i><code>nombre</code> - Nombre del profesor</li>
+                            <li><i class="fas fa-check text-success me-2"></i><code>nombre</code> - Nombre del usuario</li>
                             <li><i class="fas fa-check text-success me-2"></i><code>apellido_paterno</code> - Apellido paterno</li>
                             <li><i class="fas fa-check text-success me-2"></i><code>apellido_materno</code> - Apellido materno</li>
                             <li><i class="fas fa-check text-success me-2"></i><code>email</code> - Email único</li>
-                            <li><i class="fas fa-check text-success me-2"></i><code>tipo_profesor</code> - Tipo de profesor</li>
+                            <li><i class="fas fa-check text-success me-2"></i><code>rol</code> - Rol del usuario</li>
                         </ul>
                     </div>
                     <div class="col-md-6">
                         <h6>Columnas Opcionales</h6>
                         <ul class="list-unstyled">
                             <li><i class="fas fa-circle text-info me-2"></i><code>telefono</code> - Número de teléfono</li>
-                            <li><i class="fas fa-circle text-info me-2"></i><code>carrera_codigo</code> - Código de carrera (puede ser múltiple separado por comas)</li>
+                            <li><i class="fas fa-circle text-info me-2"></i><code>tipo_profesor</code> - Solo para profesores</li>
+                            <li><i class="fas fa-circle text-info me-2"></i><code>carrera_codigo</code> - Código de carrera(s)</li>
                         </ul>
+                        <div class="alert alert-success mt-2 p-2">
+                            <small><strong>💡 Múltiples Carreras:</strong> Separa los códigos con comas sin espacios: <code>IRO,ISC,IND</code></small>
+                        </div>
                     </div>
                 </div>
                 
                 <div class="alert alert-warning mt-3">
-                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Valores para tipo_profesor:</h6>
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Valores para rol:</h6>
                     <ul class="mb-0">
-                        <li><code>profesor_completo</code> o <code>tiempo completo</code></li>
-                        <li><code>profesor_asignatura</code> o <code>asignatura</code></li>
+                        <li><code>admin</code> - Administrador del sistema</li>
+                        <li><code>jefe_carrera</code> - Jefe de carrera (debe especificar UNA carrera)</li>
+                        <li><code>profesor</code> o <code>profesor_completo</code> o <code>tiempo completo</code> - Profesor de tiempo completo</li>
+                        <li><code>profesor_asignatura</code> o <code>asignatura</code> - Profesor por asignatura</li>
                     </ul>
                 </div>
 
@@ -114,11 +120,22 @@
             </div>
             <div class="card-body">
                 <pre class="bg-light p-3 rounded">
-nombre,apellido_paterno,apellido_materno,email,telefono,tipo_profesor,carrera_codigo
-Juan,Pérez,García,juan.perez@universidad.edu,555-1234,profesor_completo,IRO
-María,González,López,maria.gonzalez@universidad.edu,555-5678,profesor_asignatura,IRO
-Carlos,Rodríguez,Martínez,carlos.rodriguez@universidad.edu,555-9012,tiempo completo,IRO
-Ana,López,Hernández,ana.lopez@universidad.edu,,asignatura,IRO</pre>
+nombre,apellido_paterno,apellido_materno,email,telefono,rol,tipo_profesor,carrera_codigo
+Juan,Pérez,García,juan.perez@universidad.edu,555-1234,profesor,profesor_completo,IRO
+María,González,López,maria.gonzalez@universidad.edu,555-5678,profesor,profesor_asignatura,IRO,ISC
+Carlos,Rodríguez,Martínez,carlos.rodriguez@universidad.edu,555-9012,jefe_carrera,,IRO
+Ana,López,Hernández,ana.lopez@universidad.edu,,profesor,asignatura,IRO,ISC,IND
+Pedro,Sánchez,Ramírez,pedro.sanchez@universidad.edu,555-3456,admin,,</pre>
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <strong>Nota:</strong> 
+                        - Juan es profesor de tiempo completo en IRO<br>
+                        - María es profesora por asignatura en IRO e ISC<br>
+                        - Carlos es jefe de carrera de IRO<br>
+                        - Ana es profesora por asignatura en IRO, ISC e IND<br>
+                        - Pedro es administrador (sin carrera asignada)
+                    </small>
+                </div>
             </div>
         </div>
 
@@ -132,15 +149,224 @@ Ana,López,Hernández,ana.lopez@universidad.edu,,asignatura,IRO</pre>
             </div>
             <div class="card-body">
                 <ul class="list-unstyled">
-                    <li><i class="fas fa-key text-warning me-2"></i>Se generará automáticamente un <strong>username</strong> único basado en nombre.apellido_paterno</li>
-                    <li><i class="fas fa-lock text-warning me-2"></i>La contraseña temporal será <strong>"profesor123"</strong> para todos los profesores importados</li>
-                    <li><i class="fas fa-envelope text-warning me-2"></i>Los emails deben ser únicos en el sistema</li>
-                    <li><i class="fas fa-graduation-cap text-warning me-2"></i>Si no se especifica carrera_codigo, se usará la carrera por defecto seleccionada arriba</li>
-                    <li><i class="fas fa-users text-warning me-2"></i>Un profesor puede estar asignado a múltiples carreras separando los códigos con comas (ej: IRO,ISC)</li>
-                    <li><i class="fas fa-shield-alt text-warning me-2"></i>Los profesores importados estarán activos por defecto</li>
+                    <li class="mb-2"><i class="fas fa-key text-warning me-2"></i>Se generará automáticamente un <strong>username</strong> único basado en nombre.apellido_paterno</li>
+                    <li class="mb-2"><i class="fas fa-lock text-success me-2"></i>Se generará una <strong>contraseña temporal aleatoria</strong> de 8 caracteres para cada usuario nuevo</li>
+                    <li class="mb-2"><i class="fas fa-shield-alt text-info me-2"></i>Los usuarios nuevos <strong>deberán cambiar su contraseña</strong> en el primer inicio de sesión</li>
+                    <li class="mb-2"><i class="fas fa-envelope text-warning me-2"></i>Los emails deben ser <strong>únicos</strong> en el sistema</li>
+                    <li class="mb-2"><i class="fas fa-graduation-cap text-warning me-2"></i>Si no se especifica carrera_codigo, se usará la carrera por defecto seleccionada arriba</li>
+                    <li class="mb-2"><i class="fas fa-users text-success me-2"></i><strong>✨ Múltiples Carreras:</strong> Un profesor puede estar en varias carreras separando los códigos con comas <strong>sin espacios</strong> (ej: <code>IRO,ISC,IND</code>)</li>
+                    <li class="mb-2"><i class="fas fa-user-shield text-primary me-2"></i><strong>Jefe de Carrera:</strong> Debe especificar exactamente UNA carrera en carrera_codigo</li>
+                    <li class="mb-2"><i class="fas fa-user-cog text-danger me-2"></i><strong>Administrador:</strong> No requiere carrera_codigo ni tipo_profesor</li>
+                    <li class="mb-2"><i class="fas fa-sync-alt text-info me-2"></i>Si el email ya existe, se <strong>actualizarán</strong> los datos del usuario existente (sin cambiar su contraseña)</li>
                 </ul>
             </div>
         </div>
+
+        <!-- Tutorial de Múltiples Carreras -->
+        <div class="card mt-4 border-success">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-graduation-cap me-2"></i>
+                    ✨ Cómo Asignar Múltiples Carreras a un Profesor
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">Para asignar un profesor a varias carreras, sigue estos pasos:</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="alert alert-light border">
+                            <h6 class="text-success"><i class="fas fa-check-circle me-2"></i>Formato Correcto ✅</h6>
+                            <code class="d-block bg-white p-2 rounded">IRO,ISC,IND</code>
+                            <small class="text-muted">Sin espacios entre las comas</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-light border">
+                            <h6 class="text-danger"><i class="fas fa-times-circle me-2"></i>Formato Incorrecto ❌</h6>
+                            <code class="d-block bg-white p-2 rounded">IRO, ISC, IND</code>
+                            <small class="text-muted">Con espacios (causará errores)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3 p-3 bg-light rounded">
+                    <h6><i class="fas fa-lightbulb text-warning me-2"></i>Ejemplos Prácticos:</h6>
+                    <table class="table table-sm table-bordered bg-white">
+                        <thead class="table-success">
+                            <tr>
+                                <th>Caso</th>
+                                <th>Valor en carrera_codigo</th>
+                                <th>Resultado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Una carrera</td>
+                                <td><code>IRO</code></td>
+                                <td>Profesor asignado solo a Ingeniería</td>
+                            </tr>
+                            <tr>
+                                <td>Dos carreras</td>
+                                <td><code>IRO,ISC</code></td>
+                                <td>Profesor asignado a Ingeniería y Sistemas</td>
+                            </tr>
+                            <tr>
+                                <td>Tres carreras</td>
+                                <td><code>IRO,ISC,IND</code></td>
+                                <td>Profesor en Ingeniería, Sistemas e Industrial</td>
+                            </tr>
+                            <tr>
+                                <td>Sin especificar</td>
+                                <td><em>(vacío)</em></td>
+                                <td>Se usa la carrera por defecto del formulario</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Tip:</strong> Puedes mezclar profesores con una sola carrera y profesores con múltiples carreras en el mismo archivo CSV.
+                </div>
+            </div>
+        </div>
+
+        <!-- Mostrar contraseñas generadas si hubo usuarios creados -->
+        {% if mostrar_passwords and resultado and resultado.usuarios_creados %}
+        <div class="card mt-4 border-success shadow-lg">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-key me-2"></i>
+                    Contraseñas Temporales Generadas
+                </h5>
+                <small>⚠️ IMPORTANTE: Guarde esta información de forma segura. Las contraseñas NO se mostrarán nuevamente.</small>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Instrucciones:</strong>
+                    <ul class="mb-0">
+                        <li>Copie y guarde estas contraseñas en un lugar seguro</li>
+                        <li>Entregue a cada usuario su contraseña temporal</li>
+                        <li>Los usuarios deberán cambiar su contraseña en el primer inicio de sesión</li>
+                    </ul>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-success">
+                            <tr>
+                                <th>Nombre Completo</th>
+                                <th>Usuario (Username)</th>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th>Contraseña Temporal</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for usuario in resultado.usuarios_creados %}
+                            <tr>
+                                <td>{{ usuario.nombre }}</td>
+                                <td><code>{{ usuario.username }}</code></td>
+                                <td>{{ usuario.email }}</td>
+                                <td>
+                                    {% if usuario.rol == 'admin' %}
+                                        <span class="badge bg-danger">Administrador</span>
+                                    {% elif usuario.rol == 'jefe_carrera' %}
+                                        <span class="badge bg-primary">Jefe de Carrera</span>
+                                    {% elif usuario.rol == 'profesor_completo' %}
+                                        <span class="badge bg-success">Profesor T. Completo</span>
+                                    {% elif usuario.rol == 'profesor_asignatura' %}
+                                        <span class="badge bg-info">Profesor Asignatura</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ usuario.rol }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <code class="fs-5 text-danger" id="password-{{ loop.index }}">{{ usuario.password }}</code>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="copiarPassword('{{ usuario.password }}', {{ loop.index }})">
+                                        <i class="fas fa-copy me-1"></i>Copiar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Formato de entrega sugerido:</strong><br>
+                    <code>
+                        Usuario: [username]<br>
+                        Contraseña temporal: [password]<br>
+                        Deberás cambiar tu contraseña en el primer inicio de sesión.
+                    </code>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
+                    <button class="btn btn-success" onclick="copiarTodasPasswords()">
+                        <i class="fas fa-copy me-1"></i>Copiar Todas las Contraseñas
+                    </button>
+                    <button class="btn btn-primary" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i>Imprimir
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        function copiarPassword(password, index) {
+            navigator.clipboard.writeText(password).then(function() {
+                // Cambiar temporalmente el botón
+                const btn = event.target.closest('button');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>¡Copiado!';
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-success');
+                
+                setTimeout(function() {
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline-secondary');
+                }, 2000);
+            }).catch(function(err) {
+                alert('Error al copiar: ' + err);
+            });
+        }
+
+        function copiarTodasPasswords() {
+            let texto = "CONTRASEÑAS TEMPORALES - {{ resultado.usuarios_creados|length }} USUARIOS\n\n";
+            {% for usuario in resultado.usuarios_creados %}
+            texto += "{{ loop.index }}. {{ usuario.nombre }}\n";
+            texto += "   Usuario: {{ usuario.username }}\n";
+            texto += "   Email: {{ usuario.email }}\n";
+            texto += "   Contraseña: {{ usuario.password }}\n";
+            texto += "   Rol: {{ usuario.rol }}\n\n";
+            {% endfor %}
+            
+            navigator.clipboard.writeText(texto).then(function() {
+                const btn = event.target;
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>¡Todas Copiadas!';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-primary');
+                
+                setTimeout(function() {
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-success');
+                }, 3000);
+            }).catch(function(err) {
+                alert('Error al copiar: ' + err);
+            });
+        }
+        </script>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

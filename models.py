@@ -55,8 +55,10 @@ class User(UserMixin, db.Model):
     # Campos adicionales
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
     activo = db.Column(db.Boolean, default=True)
+    requiere_cambio_password = db.Column(db.Boolean, default=False)  # Forzar cambio de contraseña
+    password_temporal = db.Column(db.String(20))  # Almacenar contraseña temporal para mostrar al admin
     
-    def __init__(self, username, email, password, nombre, apellido, rol, telefono=None, tipo_profesor=None, carreras=None, imagen_perfil=None, carrera_id=None):
+    def __init__(self, username, email, password, nombre, apellido, rol, telefono=None, tipo_profesor=None, carreras=None, imagen_perfil=None, carrera_id=None, requiere_cambio_password=False, password_temporal=None):
         self.username = username
         self.email = email
         self.set_password(password)
@@ -69,10 +71,22 @@ class User(UserMixin, db.Model):
             self.carreras = carreras
         self.imagen_perfil = imagen_perfil
         self.carrera_id = carrera_id
+        self.requiere_cambio_password = requiere_cambio_password
+        self.password_temporal = password_temporal
     
     def set_password(self, password):
         """Establecer contraseña hasheada"""
         self.password_hash = generate_password_hash(password)
+    
+    @property
+    def password(self):
+        """Propiedad password - no se puede leer"""
+        raise AttributeError('password no es un atributo legible')
+    
+    @password.setter
+    def password(self, password):
+        """Setter para la propiedad password"""
+        self.set_password(password)
     
     def check_password(self, password):
         """Verificar contraseña"""

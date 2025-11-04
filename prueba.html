@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan de Pagos Carlitos</title>
+    <style>
+        /* Estilos generales de la página */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Contenedor principal que simula la hoja */
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 30px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        /* Títulos */
+        h1 {
+            text-align: center;
+            margin-top: 0;
+            color: #333;
+        }
+
+        .subtitle {
+            text-align: center;
+            margin-top: -10px;
+            color: #555;
+            font-style: italic;
+        }
+
+        /* Estilos de la tabla */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 25px;
+            font-size: 0.9em;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        /* Encabezado de la tabla */
+        thead th {
+            background-color: #f0f0f0;
+            color: #333;
+            font-weight: bold;
+        }
+
+        /* Encabezados de los meses */
+        .month-header {
+            background-color: #e0e0e0;
+            text-align: center;
+            font-weight: bold;
+            color: #222;
+        }
+        
+        /* Clases para alineación y color */
+        .text-right {
+            text-align: right;
+        }
+
+        .red-text {
+            color: #d9534f; /* Un tono de rojo */
+            font-weight: bold;
+        }
+
+        .blue-text {
+            color: #0275d8; /* Un tono de azul */
+            font-weight: bold;
+        }
+        
+        .bank-col {
+            text-align: center;
+        }
+
+        .signature-col {
+            width: 120px; /* Espacio para la firma */
+        }
+
+        /* Pie de página */
+        footer {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: #888;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Plan de Pagos Carlitos</h1>
+        <p class="subtitle">Seguimiento de pagos semanales y balance restante.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>CONCEPTO</th>
+                    <th>CANTIDAD</th>
+                    <th>FECHA</th>
+                    <th>BANCO</th>
+                    <th>SALDO</th>
+                    <th>FIRMA</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="month-header" colspan="6">AGOSTO DE 2025</td>
+                </tr>
+                <tr>
+                    <td>Semana 1</td>
+                    <td class="text-right red-text">$5,000.00</td>
+                    <td>19 de agosto de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$183,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td class="month-header" colspan="6">SEPTIEMBRE DE 2025</td>
+                </tr>
+                <tr>
+                    <td>Semana 2</td>
+                    <td class="text-right red-text">$10,000.00</td>
+                    <td>6 de septiembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$178,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 3</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>13 de septiembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$168,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 4</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>20 de septiembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$157,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 5</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>27 de septiembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$146,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td class="month-header" colspan="6">OCTUBRE DE 2025</td>
+                </tr>
+                <tr>
+                    <td>Semana 6</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>4 de octubre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$135,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 7</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>11 de octubre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$124,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 8</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>18 de octubre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$113,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 9</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>25 de octubre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$102,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Simbra</td>
+                    <td class="text-right red-text">$10,000.00</td>
+                    <td>27 de octubre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$92,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Colado</td>
+                    <td class="text-right red-text">$10,000.00</td>
+                    <td>27 de octubre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$82,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td class="month-header" colspan="6">NOVIEMBRE DE 2025</td>
+                </tr>
+                <tr>
+                    <td>Semana 10</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>1 de noviembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$71,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 11</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>8 de noviembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$60,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 12</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>15 de noviembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$49,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 13</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>22 de noviembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$38,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 14</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>29 de noviembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$27,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td class="month-header" colspan="6">DICIEMBRE DE 2025</td>
+                </tr>
+                <tr>
+                    <td>Semana 15</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>6 de diciembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$16,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 16</td>
+                    <td class="text-right red-text">$11,000.00</td>
+                    <td>13 de diciembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$5,000.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+                <tr>
+                    <td>Semana 17</td>
+                    <td class="text-right red-text">$5,000.00</td>
+                    <td>20 de diciembre de 2025</td>
+                    <td class="bank-col"></td>
+                    <td class="text-right blue-text">$0.00</td>
+                    <td class="signature-col"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <footer>
+            <span>Page 1 of 1</span>
+        </footer>
+    </div>
+
+</body>
+</html>

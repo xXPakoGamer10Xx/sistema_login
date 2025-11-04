@@ -211,26 +211,49 @@
                                     <td>{{ usuario.fecha_registro.strftime('%d/%m/%Y') }}</td>
                                     <td>
                                         <div class="btn-group" role="group">
-                                            <a href="{{ url_for('editar_usuario', id=usuario.id) }}" class="btn btn-sm btn-outline-primary" title="Editar">
+                                            <a href="{{ url_for('editar_usuario', id=usuario.id) }}" 
+                                               class="btn btn-sm btn-outline-primary" 
+                                               data-bs-toggle="tooltip" 
+                                               data-bs-placement="top" 
+                                               title="Editar Usuario">
                                                 <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{{ url_for('cambiar_password_usuario', id=usuario.id) }}" 
+                                               class="btn btn-sm btn-outline-secondary" 
+                                               data-bs-toggle="tooltip" 
+                                               data-bs-placement="top" 
+                                               title="Cambiar Contraseña">
+                                                <i class="fas fa-key"></i>
                                             </a>
                                             {% if usuario.activo %}
                                                 <form method="POST" action="{{ url_for('desactivar_usuario', id=usuario.id) }}" style="display: inline;">
-                                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Desactivar"
+                                                    <button type="submit" 
+                                                            class="btn btn-sm btn-outline-warning" 
+                                                            data-bs-toggle="tooltip" 
+                                                            data-bs-placement="top" 
+                                                            title="Desactivar Usuario"
                                                             onclick="return confirm('¿Estás seguro de desactivar este usuario?')">
                                                         <i class="fas fa-ban"></i>
                                                     </button>
                                                 </form>
                                             {% else %}
                                                 <form method="POST" action="{{ url_for('activar_usuario', id=usuario.id) }}" style="display: inline;">
-                                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Activar"
+                                                    <button type="submit" 
+                                                            class="btn btn-sm btn-outline-success" 
+                                                            data-bs-toggle="tooltip" 
+                                                            data-bs-placement="top" 
+                                                            title="Activar Usuario"
                                                             onclick="return confirm('¿Estás seguro de activar este usuario?')">
                                                         <i class="fas fa-check"></i>
                                                     </button>
                                                 </form>
                                             {% endif %}
                                             {% if usuario.id != current_user.id %}
-                                                <a href="{{ url_for('eliminar_usuario', id=usuario.id) }}" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                                <a href="{{ url_for('eliminar_usuario', id=usuario.id) }}" 
+                                                   class="btn btn-sm btn-outline-danger" 
+                                                   data-bs-toggle="tooltip" 
+                                                   data-bs-placement="top" 
+                                                   title="Eliminar Usuario">
                                                     <i class="fas fa-trash"></i>
                                                 </a>
                                             {% endif %}
@@ -371,6 +394,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+});
+
+// Inicializar tooltips de Bootstrap
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 });
 </script>
 {% endblock %}

@@ -1,5 +1,7 @@
 import pandas as pd
 import io
+import random
+import string
 from flask import make_response
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib import colors
@@ -9,12 +11,27 @@ from reportlab.lib.units import inch
 from datetime import datetime
 from models import User, Carrera, db, Materia
 
+def generar_password_temporal():
+    """Generar una contraseña temporal aleatoria de 8 caracteres"""
+    caracteres = string.ascii_uppercase + string.ascii_lowercase + string.digits
+    password = ''.join(random.choice(caracteres) for _ in range(8))
+    return password
+
 def procesar_archivo_profesores(archivo, carrera_defecto_id=None):
     """
-    Procesar archivo CSV/Excel con datos de profesores
+    Procesar archivo CSV/Excel con datos de usuarios (profesores, jefes de carrera, admins)
     
     Formato esperado del archivo:
-    - nombre, apellido_paterno, apellido_materno, email, telefono, tipo_profesor, carrera_codigo (opcional)
+    - nombre, apellido_paterno, apellido_materno, email, telefono, rol, tipo_profesor (opcional), carrera_codigo (opcional)
+    
+    Roles soportados:
+    - admin, administrador
+    - jefe_carrera, jefe carrera
+    - profesor (requiere tipo_profesor)
+    
+    Tipos de profesor (solo para rol=profesor):
+    - profesor_completo, tiempo completo
+    - profesor_asignatura, asignatura
     """
     resultado = {
         'exito': False,
@@ -22,6 +39,7 @@ def procesar_archivo_profesores(archivo, carrera_defecto_id=None):
         'creados': 0,
         'actualizados': 0,
         'errores': [],
+        'usuarios_creados': [],  # Lista de usuarios con sus contraseñas temporales
         'mensaje': ''
     }
     
@@ -45,7 +63,7 @@ def procesar_archivo_profesores(archivo, carrera_defecto_id=None):
         df.columns = df.columns.str.strip().str.lower()
         
         # Validar columnas requeridas
-        columnas_requeridas = ['nombre', 'apellido_paterno', 'apellido_materno', 'email', 'tipo_profesor']
+        columnas_requeridas = ['nombre', 'apellido_paterno', 'apellido_materno', 'email', 'rol']
         columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
         
         if columnas_faltantes:
@@ -59,41 +77,89 @@ def procesar_archivo_profesores(archivo, carrera_defecto_id=None):
                 resultado['procesados'] += 1
                 
                 # Validar datos básicos
-                if pd.isna(row['nombre']) or pd.isna(row['apellido_paterno']) or pd.isna(row['apellido_materno']) or pd.isna(row['email']):
-                    resultado['errores'].append(f"Fila {index + 2}: Datos básicos incompletos (nombre, apellido_paterno, apellido_materno o email vacío)")
+                if pd.isna(row['nombre']) or pd.isna(row['apellido_paterno']) or pd.isna(row['apellido_materno']) or pd.isna(row['email']) or pd.isna(row['rol']):
+                    resultado['errores'].append(f"Fila {index + 2}: Datos básicos incompletos (nombre, apellido_paterno, apellido_materno, email o rol vacío)")
                     continue
                 
-                # Validar tipo de profesor
-                tipo_profesor = str(row['tipo_profesor']).lower().strip()
-                if tipo_profesor not in ['profesor_completo', 'profesor_asignatura', 'tiempo completo', 'asignatura']:
-                    resultado['errores'].append(f"Fila {index + 2}: Tipo de profesor inválido (debe ser: profesor_completo, profesor_asignatura, tiempo completo o asignatura)")
+                # Validar y normalizar rol
+                rol_input = str(row['rol']).lower().strip()
+                rol_final = None
+                tipo_profesor = None
+                
+                # Normalizar roles
+                if rol_input in ['admin', 'administrador']:
+                    rol_final = 'admin'
+                elif rol_input in ['jefe_carrera', 'jefe carrera', 'jefe de carrera']:
+                    rol_final = 'jefe_carrera'
+                elif rol_input == 'profesor':
+                    # Para profesor, se requiere tipo_profesor
+                    if 'tipo_profesor' not in df.columns or pd.isna(row['tipo_profesor']):
+                        resultado['errores'].append(f"Fila {index + 2}: Los profesores requieren especificar 'tipo_profesor' (profesor_completo o profesor_asignatura)")
+                        continue
+                    
+                    tipo_profesor_input = str(row['tipo_profesor']).lower().strip()
+                    if tipo_profesor_input in ['profesor_completo', 'tiempo completo', 'completo']:
+                        tipo_profesor = 'profesor_completo'
+                        rol_final = 'profesor_completo'
+                    elif tipo_profesor_input in ['profesor_asignatura', 'asignatura', 'por asignatura']:
+                        tipo_profesor = 'profesor_asignatura'
+                        rol_final = 'profesor_asignatura'
+                    else:
+                        resultado['errores'].append(f"Fila {index + 2}: Tipo de profesor inválido (debe ser: profesor_completo, profesor_asignatura, tiempo completo o asignatura)")
+                        continue
+                else:
+                    resultado['errores'].append(f"Fila {index + 2}: Rol inválido '{rol_input}' (debe ser: admin, jefe_carrera o profesor)")
                     continue
                 
-                # Normalizar tipo de profesor
-                if tipo_profesor in ['tiempo completo']:
-                    tipo_profesor = 'profesor_completo'
-                elif tipo_profesor in ['asignatura']:
-                    tipo_profesor = 'profesor_asignatura'
-                
-                # Determinar carrera(s)
+                # Determinar carrera(s) según el rol
                 carreras = []
-                if 'carrera_codigo' in df.columns and not pd.isna(row['carrera_codigo']):
-                    # Puede tener múltiples carreras separadas por coma
-                    codigos_carrera = str(row['carrera_codigo']).split(',')
-                    for codigo in codigos_carrera:
-                        carrera = Carrera.query.filter_by(codigo=codigo.upper().strip()).first()
+                carrera_id = None
+                carreras_no_encontradas = []
+                
+                if rol_final == 'jefe_carrera':
+                    # Jefe de carrera necesita UNA carrera
+                    if 'carrera_codigo' in df.columns and not pd.isna(row['carrera_codigo']):
+                        codigo_limpio = str(row['carrera_codigo']).split(',')[0].upper().strip()  # Solo la primera
+                        carrera = Carrera.query.filter_by(codigo=codigo_limpio).first()
+                        if carrera:
+                            carrera_id = carrera.id
+                        else:
+                            resultado['errores'].append(f"Fila {index + 2}: Carrera '{codigo_limpio}' no encontrada para jefe de carrera")
+                            continue
+                    elif carrera_defecto_id:
+                        carrera_id = carrera_defecto_id
+                    else:
+                        resultado['errores'].append(f"Fila {index + 2}: Jefes de carrera requieren especificar 'carrera_codigo'")
+                        continue
+                        
+                elif rol_final in ['profesor_completo', 'profesor_asignatura']:
+                    # Profesores pueden tener múltiples carreras
+                    if 'carrera_codigo' in df.columns and not pd.isna(row['carrera_codigo']):
+                        codigos_carrera = str(row['carrera_codigo']).split(',')
+                        for codigo in codigos_carrera:
+                            codigo_limpio = codigo.upper().strip()
+                            carrera = Carrera.query.filter_by(codigo=codigo_limpio).first()
+                            if carrera:
+                                carreras.append(carrera)
+                            else:
+                                carreras_no_encontradas.append(codigo_limpio)
+                        
+                        if carreras_no_encontradas:
+                            resultado['errores'].append(
+                                f"Fila {index + 2} ({row['nombre']} {row['apellido_paterno']}): "
+                                f"Carrera(s) no encontrada(s): {', '.join(carreras_no_encontradas)}. "
+                                f"Verifica los códigos disponibles."
+                            )
+                            if not carreras:
+                                continue
+                    elif carrera_defecto_id:
+                        carrera = Carrera.query.get(carrera_defecto_id)
                         if carrera:
                             carreras.append(carrera)
-                        else:
-                            resultado['errores'].append(f"Fila {index + 2}: Carrera con código '{codigo.strip()}' no encontrada")
-                elif carrera_defecto_id:
-                    carrera = Carrera.query.get(carrera_defecto_id)
-                    if carrera:
-                        carreras.append(carrera)
-                
-                if not carreras:
-                    resultado['errores'].append(f"Fila {index + 2}: No se pudo determinar la carrera para {row['nombre']} {row['apellido_paterno']}. Agrega 'carrera_codigo' en el CSV o selecciona una carrera por defecto.")
-                    continue
+                    else:
+                        resultado['errores'].append(f"Fila {index + 2}: Profesores requieren al menos una carrera. Agrega 'carrera_codigo' o selecciona una carrera por defecto.")
+                        continue
+                # Admin no requiere carrera
                 
                 # Construir apellido completo
                 apellido_paterno = str(row['apellido_paterno']).strip().title()
@@ -107,9 +173,20 @@ def procesar_archivo_profesores(archivo, carrera_defecto_id=None):
                     # Actualizar usuario existente
                     usuario_existente.nombre = str(row['nombre']).strip().title()
                     usuario_existente.apellido = apellido_completo
-                    usuario_existente.rol = tipo_profesor
+                    usuario_existente.rol = rol_final
                     usuario_existente.telefono = str(row['telefono']).strip() if 'telefono' in df.columns and not pd.isna(row['telefono']) else None
-                    usuario_existente.carreras = carreras
+                    
+                    # Actualizar carreras según el rol
+                    if rol_final in ['profesor_completo', 'profesor_asignatura']:
+                        usuario_existente.carreras = carreras
+                        usuario_existente.carrera_id = None
+                    elif rol_final == 'jefe_carrera':
+                        usuario_existente.carrera_id = carrera_id
+                        usuario_existente.carreras = []
+                    else:  # admin
+                        usuario_existente.carreras = []
+                        usuario_existente.carrera_id = None
+                    
                     resultado['actualizados'] += 1
                 else:
                     # Generar username único
@@ -123,20 +200,35 @@ def procesar_archivo_profesores(archivo, carrera_defecto_id=None):
                         username = f"{username_base}{contador}"
                         contador += 1
                     
+                    # Generar contraseña temporal aleatoria
+                    password_temporal = generar_password_temporal()
+                    
                     # Crear nuevo usuario
                     usuario = User(
                         username=username,
                         email=str(row['email']).strip(),
-                        password='profesor123',  # Contraseña temporal
+                        password=password_temporal,
                         nombre=str(row['nombre']).strip().title(),
                         apellido=apellido_completo,
-                        rol=tipo_profesor,
+                        rol=rol_final,
                         telefono=str(row['telefono']).strip() if 'telefono' in df.columns and not pd.isna(row['telefono']) else None,
-                        carreras=carreras  # Asignar carreras (relación many-to-many)
+                        carreras=carreras if rol_final in ['profesor_completo', 'profesor_asignatura'] else None,
+                        carrera_id=carrera_id if rol_final == 'jefe_carrera' else None,
+                        requiere_cambio_password=True,  # Forzar cambio de contraseña
+                        password_temporal=password_temporal  # Guardar para mostrar al admin
                     )
                     
                     db.session.add(usuario)
                     resultado['creados'] += 1
+                    
+                    # Agregar a la lista de usuarios creados con sus contraseñas
+                    resultado['usuarios_creados'].append({
+                        'nombre': usuario.get_nombre_completo(),
+                        'username': username,
+                        'email': usuario.email,
+                        'password': password_temporal,
+                        'rol': usuario.get_rol_display()
+                    })
                 
             except Exception as e:
                 resultado['errores'].append(f"Fila {index + 2}: Error al procesar - {str(e)}")
@@ -316,13 +408,19 @@ def get_table_style():
     ])
 
 def generar_plantilla_csv():
-    """Generar archivo CSV de plantilla para importar profesores (solo encabezados)"""
-    # Solo crear encabezados sin datos de ejemplo
-    contenido_csv = "nombre,apellido_paterno,apellido_materno,email,telefono,tipo_profesor,carrera_codigo\n"
+    """Generar archivo CSV de plantilla para importar usuarios con ejemplos"""
+    # Crear encabezados y ejemplos de datos
+    contenido_csv = """nombre,apellido_paterno,apellido_materno,email,telefono,rol,tipo_profesor,carrera_codigo
+Juan,Pérez,García,juan.perez@universidad.edu,555-1234,profesor,profesor_completo,IRO
+María,González,López,maria.gonzalez@universidad.edu,555-5678,profesor,profesor_asignatura,IRO,ISC
+Carlos,Rodríguez,Martínez,carlos.rodriguez@universidad.edu,555-9012,jefe_carrera,,IRO
+Ana,López,Hernández,ana.lopez@universidad.edu,,profesor,asignatura,IRO,ISC,IND
+Pedro,Sánchez,Ramírez,pedro.sanchez@universidad.edu,555-3456,admin,,
+"""
     
     # Crear response
     response = make_response(contenido_csv)
-    response.headers["Content-Disposition"] = "attachment; filename=plantilla_profesores.csv"
+    response.headers["Content-Disposition"] = "attachment; filename=plantilla_usuarios.csv"
     response.headers["Content-type"] = "text/csv; charset=utf-8"
     
     return response

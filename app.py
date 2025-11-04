@@ -7,7 +7,8 @@ from forms import (LoginForm, RegistrationForm, HorarioForm, EliminarHorarioForm
                    MateriaForm, ImportarMateriasForm, FiltrarMateriasForm, ExportarMateriasForm,
                    GenerarHorariosForm, EditarHorarioAcademicoForm, EliminarHorarioAcademicoForm,
                    DisponibilidadProfesorForm, EditarDisponibilidadProfesorForm, AgregarProfesorForm,
-                   EditarUsuarioForm, AsignarMateriasProfesorForm, GrupoForm, AsignarMateriasGrupoForm)
+                   EditarUsuarioForm, AsignarMateriasProfesorForm, GrupoForm, AsignarMateriasGrupoForm,
+                   CambiarPasswordProfesorForm)
 from utils import procesar_archivo_profesores, generar_pdf_profesores, procesar_archivo_materias, generar_pdf_materias, generar_plantilla_csv
 from datetime import time, datetime
 import os
@@ -65,6 +66,12 @@ def login():
         if user and user.check_password(form.password.data):
             if user.activo:
                 login_user(user)
+                
+                # Verificar si el usuario requiere cambio de contraseña
+                if user.requiere_cambio_password:
+                    flash(f'Bienvenido, {user.get_nombre_completo()}. Por seguridad, debes cambiar tu contraseña temporal.', 'warning')
+                    return redirect(url_for('cambiar_password_obligatorio'))
+                
                 flash(f'¡Bienvenido, {user.get_nombre_completo()}!', 'success')
                 
                 # Redirigir a la página solicitada o al dashboard
@@ -125,6 +132,41 @@ def register():
             print(f"Error en registro: {e}")
     
     return render_template('register.html', form=form)
+
+@app.route('/cambiar-password-obligatorio', methods=['GET', 'POST'])
+@login_required
+def cambiar_password_obligatorio():
+    """Página obligatoria para cambiar contraseña temporal"""
+    # Si el usuario ya cambió su contraseña, redirigir al dashboard
+    if not current_user.requiere_cambio_password:
+        return redirect(url_for('dashboard'))
+    
+    from forms import CambiarPasswordObligatorioForm
+    form = CambiarPasswordObligatorioForm()
+    
+    if form.validate_on_submit():
+        try:
+            # Verificar que la contraseña actual sea correcta
+            if not current_user.check_password(form.password_actual.data):
+                flash('La contraseña actual es incorrecta.', 'error')
+                return render_template('cambiar_password_obligatorio.html', form=form)
+            
+            # Actualizar contraseña
+            current_user.password = form.nueva_password.data
+            current_user.requiere_cambio_password = False
+            current_user.password_temporal = None
+            
+            db.session.commit()
+            
+            flash('¡Contraseña actualizada exitosamente! Ahora puedes acceder al sistema.', 'success')
+            return redirect(url_for('dashboard'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash('Error al cambiar la contraseña. Inténtalo de nuevo.', 'error')
+            print(f"Error en cambiar password obligatorio: {e}")
+    
+    return render_template('cambiar_password_obligatorio.html', form=form, password_temporal=current_user.password_temporal)
 
 # ==========================================
 # FUNCIÓN CENTRAL PARA PROCESAR HORARIOS
@@ -1943,14 +1985,27 @@ def importar_profesores():
             resultado = procesar_archivo_profesores(archivo)
             
             if resultado['exito']:
-                flash(f"Importación exitosa: {resultado['procesados']} profesores procesados, "
-                     f"{resultado['creados']} nuevos, {resultado['actualizados']} actualizados.", 'success')
+                # Crear mensaje con usuarios creados
+                mensaje_usuarios = ""
+                if resultado['usuarios_creados']:
+                    mensaje_usuarios = f" {len(resultado['usuarios_creados'])} usuarios nuevos con contraseñas generadas."
+                
+                flash(f"Importación exitosa: {resultado['procesados']} usuarios procesados, "
+                     f"{resultado['creados']} nuevos, {resultado['actualizados']} actualizados.{mensaje_usuarios}", 'success')
                 
                 if resultado['errores']:
                     flash(f"Se encontraron {len(resultado['errores'])} errores durante la importación.", 'warning')
+                
+                # Si hay usuarios creados, mostrar la tabla con contraseñas
+                if resultado['usuarios_creados']:
                     return render_template('admin/importar_profesores.html', 
                                          form=form, 
-                                         resultado=resultado)
+                                         resultado=resultado,
+                                         mostrar_passwords=True)
+                
+                return render_template('admin/importar_profesores.html', 
+                                     form=form, 
+                                     resultado=resultado)
             else:
                 flash(f"Error en la importación: {resultado['mensaje']}", 'error')
                 
@@ -2172,6 +2227,110 @@ def ver_materias_profesor(id):
                          profesor=profesor,
                          materias=materias,
                          horarios_por_materia=horarios_por_materia)
+
+@app.route('/admin/profesores/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_profesor(id):
+    """Editar profesor (solo admin)"""
+    if not current_user.is_admin():
+        flash('No tienes permisos para acceder a esta página.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    profesor = User.query.get_or_404(id)
+    
+    if profesor.rol not in ['profesor_completo', 'profesor_asignatura']:
+        flash('Este usuario no es un profesor.', 'error')
+        return redirect(url_for('gestionar_profesores'))
+    
+    from forms import EditarUsuarioForm
+    form = EditarUsuarioForm(user=profesor)
+    
+    if form.validate_on_submit():
+        try:
+            # Obtener el rol final (considerando tipo de profesor)
+            rol_final = form.get_final_rol()
+            
+            # Actualizar datos del profesor
+            profesor.username = form.username.data
+            profesor.email = form.email.data
+            profesor.nombre = form.nombre.data
+            profesor.apellido = form.apellido.data
+            profesor.rol = rol_final
+            profesor.telefono = form.telefono.data
+            profesor.activo = form.activo.data
+            
+            # Actualizar carreras (many-to-many)
+            from models import Carrera
+            if form.carreras.data:
+                carreras_seleccionadas = Carrera.query.filter(Carrera.id.in_(form.carreras.data)).all()
+                profesor.carreras = carreras_seleccionadas
+            else:
+                profesor.carreras = []
+            
+            # Limpiar carrera_id si existía (por si antes era jefe de carrera)
+            profesor.carrera_id = None
+            
+            db.session.commit()
+            flash(f'Profesor {profesor.get_nombre_completo()} actualizado exitosamente.', 'success')
+            return redirect(url_for('gestionar_profesores'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar profesor: {str(e)}', 'error')
+    
+    # Llenar formulario con datos actuales
+    elif request.method == 'GET':
+        form.username.data = profesor.username
+        form.email.data = profesor.email
+        form.nombre.data = profesor.nombre
+        form.apellido.data = profesor.apellido
+        form.telefono.data = profesor.telefono
+        form.activo.data = profesor.activo
+        
+        # Configurar rol y tipo de profesor
+        form.rol.data = 'profesor'
+        form.tipo_profesor.data = profesor.rol
+        # Cargar carreras del profesor
+        form.carreras.data = [c.id for c in profesor.carreras]
+    
+    return render_template('admin/usuario_form.html', 
+                         form=form, 
+                         titulo=f"Editar Profesor - {profesor.get_nombre_completo()}", 
+                         usuario=profesor)
+
+@app.route('/admin/profesores/<int:id>/cambiar-password', methods=['GET', 'POST'])
+@login_required
+def cambiar_password_profesor(id):
+    """Cambiar contraseña de un profesor (solo admin)"""
+    if not current_user.is_admin():
+        flash('No tienes permisos para acceder a esta página.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    profesor = User.query.get_or_404(id)
+    
+    if profesor.rol not in ['profesor_completo', 'profesor_asignatura']:
+        flash('Este usuario no es un profesor.', 'error')
+        return redirect(url_for('gestionar_profesores'))
+    
+    form = CambiarPasswordProfesorForm()
+    
+    if form.validate_on_submit():
+        try:
+            # Cambiar la contraseña del profesor
+            profesor.password = form.nueva_password.data
+            db.session.commit()
+            
+            flash(f'Contraseña actualizada exitosamente para {profesor.get_nombre_completo()}.', 'success')
+            return redirect(url_for('gestionar_profesores'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al cambiar la contraseña: {str(e)}', 'error')
+    
+    return render_template('admin/cambiar_password_profesor.html',
+                         form=form,
+                         profesor=profesor,
+                         titulo=f"Cambiar Contraseña - {profesor.get_nombre_completo()}")
 
 # ==========================================
 # ASIGNACIÓN MASIVA DE MATERIAS
@@ -2666,32 +2825,34 @@ def editar_usuario(id):
         rol_anterior = usuario.rol
         carrera_anterior = usuario.carrera_id
         
+        # Obtener el rol final (considerando tipo de profesor)
+        rol_final = form.get_final_rol()
+        
         # Actualizar usuario
         usuario.username = form.username.data
         usuario.email = form.email.data
         usuario.nombre = form.nombre.data
         usuario.apellido = form.apellido.data
-        usuario.rol = form.rol.data
+        usuario.rol = rol_final
         usuario.telefono = form.telefono.data
         usuario.activo = form.activo.data
         
         # Limpiar carrera_id si cambia de jefe_carrera a otro rol
-        if rol_anterior == 'jefe_carrera' and usuario.rol != 'jefe_carrera':
+        if rol_anterior == 'jefe_carrera' and rol_final != 'jefe_carrera':
             usuario.carrera_id = None
         
         # Asignar carrera según el nuevo rol
-        if usuario.rol == 'jefe_carrera':
+        if rol_final == 'jefe_carrera':
             # Para jefe de carrera: usar carrera_id (relación one-to-one)
             usuario.carrera_id = int(form.carrera.data) if form.carrera.data else None
             # Limpiar carreras many-to-many si existían
             usuario.carreras = []
-        elif usuario.rol in ['profesor_completo', 'profesor_asignatura']:
+        elif rol_final in ['profesor_completo', 'profesor_asignatura']:
             # Para profesores: usar carreras (relación many-to-many)
             from models import Carrera
-            if form.carrera.data:
-                carrera = Carrera.query.get(int(form.carrera.data))
-                if carrera:
-                    usuario.carreras = [carrera]
+            if form.carreras.data:
+                carreras_seleccionadas = Carrera.query.filter(Carrera.id.in_(form.carreras.data)).all()
+                usuario.carreras = carreras_seleccionadas
             else:
                 usuario.carreras = []
             # Limpiar carrera_id si existía
@@ -2702,12 +2863,12 @@ def editar_usuario(id):
             usuario.carreras = []
 
         # Si se cambió de jefe de carrera a otro rol, liberar la carrera
-        if rol_anterior == 'jefe_carrera' and usuario.rol != 'jefe_carrera' and carrera_anterior:
+        if rol_anterior == 'jefe_carrera' and rol_final != 'jefe_carrera' and carrera_anterior:
             # La carrera queda libre para otro jefe
             pass
 
         # Si se cambió a jefe de carrera desde otro rol, verificar que la carrera esté libre
-        if rol_anterior != 'jefe_carrera' and usuario.rol == 'jefe_carrera' and usuario.carrera_id:
+        if rol_anterior != 'jefe_carrera' and rol_final == 'jefe_carrera' and usuario.carrera_id:
             # Verificar que no haya otro jefe activo para esta carrera
             existing_jefe = User.query.filter(
                 User.rol == 'jefe_carrera',
@@ -2734,10 +2895,18 @@ def editar_usuario(id):
         form.email.data = usuario.email
         form.nombre.data = usuario.nombre
         form.apellido.data = usuario.apellido
-        form.rol.data = usuario.rol
         form.telefono.data = usuario.telefono
-        form.carrera.data = str(usuario.carrera_id) if usuario.carrera_id else ''
         form.activo.data = usuario.activo
+        
+        # Configurar rol y tipo de profesor
+        if usuario.rol in ['profesor_completo', 'profesor_asignatura']:
+            form.rol.data = 'profesor'
+            form.tipo_profesor.data = usuario.rol
+            # Cargar carreras del profesor
+            form.carreras.data = [c.id for c in usuario.carreras]
+        else:
+            form.rol.data = usuario.rol
+            form.carrera.data = str(usuario.carrera_id) if usuario.carrera_id else ''
 
     return render_template('admin/usuario_form.html', form=form, titulo="Editar Usuario", usuario=usuario)
 
@@ -2832,6 +3001,36 @@ def desactivar_usuario(id):
         flash(f'Error al desactivar usuario: {str(e)}', 'error')
 
     return redirect(url_for('gestionar_usuarios'))
+
+@app.route('/admin/usuario/<int:id>/cambiar-password', methods=['GET', 'POST'])
+@login_required
+def cambiar_password_usuario(id):
+    """Cambiar contraseña de un usuario (solo admin)"""
+    if not current_user.is_admin():
+        flash('No tienes permisos para acceder a esta página.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    usuario = User.query.get_or_404(id)
+    
+    form = CambiarPasswordProfesorForm()
+    
+    if form.validate_on_submit():
+        try:
+            # Cambiar la contraseña del usuario
+            usuario.password = form.nueva_password.data
+            db.session.commit()
+            
+            flash(f'Contraseña actualizada exitosamente para {usuario.get_nombre_completo()}.', 'success')
+            return redirect(url_for('gestionar_usuarios'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al cambiar la contraseña: {str(e)}', 'error')
+    
+    return render_template('admin/cambiar_password_usuario.html',
+                         form=form,
+                         usuario=usuario,
+                         titulo=f"Cambiar Contraseña - {usuario.get_nombre_completo()}")
 
 # Reportes del Sistema
 @app.route('/admin/reportes')
