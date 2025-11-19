@@ -676,8 +676,8 @@ class HorarioAcademico(db.Model):
     # Información adicional
     dia_semana = db.Column(db.String(10), nullable=False)  # 'lunes', 'martes', etc.
     grupo = db.Column(db.String(10), nullable=False, default='A')  # 'A', 'B', 'C', etc.
-    aula = db.Column(db.String(20))  # Ej: "A101", "Lab1", etc.
     periodo_academico = db.Column(db.String(20))  # Ej: "2025 - 2025", "2025 - 2026"
+    version_nombre = db.Column(db.String(100))  # Etiqueta de la versión: "Final", "Borrador v1", etc.
     
     # Metadatos
     activo = db.Column(db.Boolean, default=True)
@@ -690,14 +690,14 @@ class HorarioAcademico(db.Model):
     horario = db.relationship('Horario', backref=db.backref('horarios_academicos', lazy=True))
     creador = db.relationship('User', foreign_keys=[creado_por], backref=db.backref('horarios_creados_academicos', lazy=True))
     
-    def __init__(self, profesor_id, materia_id, horario_id, dia_semana, grupo='A', aula=None, 
-                 periodo_academico=None, creado_por=None):
+    def __init__(self, profesor_id, materia_id, horario_id, dia_semana, grupo='A', 
+                 periodo_academico=None, version_nombre=None, creado_por=None):
         self.profesor_id = profesor_id
         self.materia_id = materia_id
         self.horario_id = horario_id
         self.dia_semana = dia_semana.lower()
         self.grupo = grupo.upper()
-        self.aula = aula
+        self.version_nombre = version_nombre
         # Si no se proporciona periodo_academico, calcularlo basado en la materia
         if periodo_academico is None and materia_id:
             materia = Materia.query.get(materia_id)

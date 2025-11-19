@@ -21,7 +21,7 @@ class GeneradorHorariosOR:
     """Clase para generar horarios académicos automáticamente usando Google OR-Tools"""
 
     def __init__(self, carrera_id, cuatrimestre, turno='matutino', dias_semana=None,
-                 periodo_academico='2025-1', creado_por=None, grupo_id=None):
+                 periodo_academico='2025-1', version_nombre=None, creado_por=None, grupo_id=None):
         """
         Inicializar el generador de horarios con OR-Tools
 
@@ -31,6 +31,7 @@ class GeneradorHorariosOR:
             turno: 'matutino', 'vespertino' o 'ambos'
             dias_semana: Lista de días de la semana ['lunes', 'martes', etc.]
             periodo_academico: Período académico (ej: '2025-1')
+            version_nombre: Etiqueta de la versión (ej: 'Final', 'Borrador 1')
             creado_por: ID del usuario que genera los horarios
             grupo_id: (Nuevo) ID del grupo - si se proporciona, se usarán las materias y profesores del grupo
         """
@@ -42,6 +43,7 @@ class GeneradorHorariosOR:
         self.turno = turno
         self.dias_semana = dias_semana or ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
         self.periodo_academico = periodo_academico
+        self.version_nombre = version_nombre
         self.creado_por = creado_por
         self.grupo_id = grupo_id  # Nuevo parámetro
 
@@ -607,6 +609,7 @@ class GeneradorHorariosOR:
                     horario_id=horario_id,
                     dia_semana=dia,
                     periodo_academico=self.periodo_academico,
+                    version_nombre=self.version_nombre,
                     creado_por=self.creado_por
                 )
 
@@ -754,13 +757,14 @@ class GeneradorHorariosSinOR:
     """Generador de horarios que funciona sin OR-Tools como respaldo"""
     
     def __init__(self, carrera_id, cuatrimestre, turno='matutino', dias_semana=None,
-                 periodo_academico='2025-1', creado_por=None, grupo_id=None):
+                 periodo_academico='2025-1', version_nombre=None, creado_por=None, grupo_id=None):
         """Inicializar el generador de horarios sin OR-Tools"""
         self.carrera_id = carrera_id
         self.cuatrimestre = cuatrimestre
         self.turno = turno
         self.dias_semana = dias_semana or ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
         self.periodo_academico = periodo_academico
+        self.version_nombre = version_nombre
         self.creado_por = creado_por
         self.grupo_id = grupo_id  # Nuevo parámetro
         
@@ -1005,6 +1009,7 @@ class GeneradorHorariosSinOR:
                     horario_id=horario_id,
                     dia_semana=dia,
                     periodo_academico=self.periodo_academico,
+                    version_nombre=self.version_nombre,
                     creado_por=self.creado_por
                 )
                 db.session.add(horario_academico)
@@ -1138,7 +1143,7 @@ class GeneradorHorariosSinOR:
 
 
 def generar_horarios_automaticos(grupo_id=None, dias_semana=None,
-                                periodo_academico='2025-1', creado_por=None,
+                                periodo_academico='2025-1', version_nombre=None, creado_por=None,
                                 # Parámetros legacy (mantener compatibilidad)
                                 carrera_id=None, cuatrimestre=None, turno='matutino'):
     """
@@ -1215,6 +1220,7 @@ def generar_horarios_automaticos(grupo_id=None, dias_semana=None,
                 turno=turno,
                 dias_semana=dias_semana,
                 periodo_academico=periodo_academico,
+                version_nombre=version_nombre,
                 creado_por=creado_por,
                 grupo_id=grupo_id  # Nuevo parámetro
             )
@@ -1227,6 +1233,7 @@ def generar_horarios_automaticos(grupo_id=None, dias_semana=None,
                 turno=turno,
                 dias_semana=dias_semana,
                 periodo_academico=periodo_academico,
+                version_nombre=version_nombre,
                 creado_por=creado_por,
                 grupo_id=grupo_id  # Nuevo parámetro
             )

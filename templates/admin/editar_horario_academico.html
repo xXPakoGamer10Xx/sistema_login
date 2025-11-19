@@ -44,17 +44,9 @@
                             <strong>Profesor Actual:</strong><br>
                             {{ horario_academico.get_profesor_nombre() }}
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <strong>Horario Actual:</strong><br>
                             {{ horario_academico.get_dia_display() }} {{ horario_academico.get_hora_inicio_str() }} - {{ horario_academico.get_hora_fin_str() }}
-                        </div>
-                        <div class="col-md-3">
-                            <strong>Aula:</strong><br>
-                            {% if horario_academico.aula %}
-                                {{ horario_academico.aula }}
-                            {% else %}
-                                <span class="text-muted">Sin asignar</span>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -127,7 +119,9 @@
                                         {% endfor %}
                                     </div>
                                 {% endif %}
-                                <div class="form-text">Permite tener múltiples grupos de la misma materia</div>
+                                                                <div class="form-text">Permite tener múltiples grupos de la misma materia</div>
+                            </div>
+                        </div>
                             </div>
 
                             <!-- Aula -->

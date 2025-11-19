@@ -178,6 +178,15 @@
                                      aria-labelledby="heading{{ grupo.id }}" data-bs-parent="#accordionGrupos">
                                     <div class="accordion-body">
                                         <div class="table-responsive">
+                                            <!-- Mostrar versión si existe -->
+                                            {% if horarios and horarios[0].version_nombre %}
+                                            <div class="alert alert-light border-start border-primary border-4 mb-3">
+                                                <i class="fas fa-tag me-2 text-primary"></i>
+                                                <strong>Versión:</strong> {{ horarios[0].version_nombre }}
+                                                <small class="text-muted ms-2">({{ horarios[0].periodo_academico }})</small>
+                                            </div>
+                                            {% endif %}
+                                            
                                             <table class="table table-sm table-striped table-hover">
                                                 <thead class="table-dark">
                                                     <tr>
@@ -185,7 +194,6 @@
                                                         <th>Hora</th>
                                                         <th>Materia</th>
                                                         <th>Profesor</th>
-                                                        <th>Aula</th>
                                                         <th>Acciones</th>
                                                     </tr>
                                                 </thead>
@@ -206,13 +214,6 @@
                                                             <small class="text-muted">{{ horario.get_materia_codigo() }}</small>
                                                         </td>
                                                         <td>{{ horario.get_profesor_nombre() }}</td>
-                                                        <td>
-                                                            {% if horario.aula %}
-                                                                {{ horario.aula }}
-                                                            {% else %}
-                                                                <span class="text-muted">Sin asignar</span>
-                                                            {% endif %}
-                                                        </td>
                                                         <td>
                                                             <div class="btn-group btn-group-sm" role="group">
                                                                 <a href="{{ url_for('editar_horario_academico', id=horario.id) }}"

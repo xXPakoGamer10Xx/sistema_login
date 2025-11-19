@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plan de Pagos Carlitos</title>
+    <title>Plan de Pagos Carlitos (Actualizado)</title>
     <style>
         /* Estilos generales de la página */
         body {
@@ -93,6 +93,26 @@
             width: 120px; /* Espacio para la firma */
         }
 
+        /* Estilo del botón de imprimir */
+        .print-button {
+            display: block;
+            margin: -10px auto 20px auto; /* Ajustado para estar debajo del subtitulo */
+            padding: 10px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            color: #fff;
+            background-color: #0275d8;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .print-button:hover {
+            background-color: #025aa5;
+        }
+
+
         /* Pie de página */
         footer {
             margin-top: 30px;
@@ -102,6 +122,68 @@
             color: #888;
         }
 
+        /* Estilos específicos para Impresión */
+        @media print {
+            /* Ocultar elementos que no se deben imprimir */
+            .print-button, footer {
+                display: none;
+            }
+
+            /* Forzar todo el texto a negro para ahorrar tinta y legibilidad, EXCEPTO .red-text y .blue-text */
+            h1, p, td, th {
+                color: #000000 !important;
+            }
+            
+            /* Asegurar que el texto rojo siga siendo rojo */
+            .red-text {
+                color: #d9534f !important; /* Rojo original */
+                -webkit-print-color-adjust: exact; /* Fuerza la impresión del color en Chrome/Safari */
+                print-color-adjust: exact; /* Fuerza la impresión del color en Firefox */
+            }
+
+            /* Asegurar que el texto azul siga siendo azul */
+            .blue-text {
+                color: #0275d8 !important; /* Azul original */
+                -webkit-print-color-adjust: exact; /* Fuerza la impresión del color en Chrome/Safari */
+                print-color-adjust: exact; /* Fuerza la impresión del color en Firefox */
+            }
+
+
+            /* Reducir el tamaño para que quepa en una hoja */
+            /* Esto es un intento, puede necesitar ajuste manual en la impresora */
+            table {
+                font-size: 8pt; /* Usar puntos para impresión es mejor */
+                margin-top: 15px;
+            }
+
+            th, td {
+                padding: 4px 6px;
+                border: 1px solid #ccc; /* Borde más ligero para impresión */
+            }
+
+            .month-header {
+                background-color: #f0f0f0 !important; /* Mantener un gris claro */
+                font-weight: bold;
+                -webkit-print-color-adjust: exact; /* Fuerza la impresión del color de fondo en Chrome/Safari */
+                print-color-adjust: exact; /* Fuerza la impresión del color de fondo en Firefox */
+            }
+            
+            h1 {
+                font-size: 16pt;
+                margin-bottom: 5px;
+            }
+            
+            .subtitle {
+                font-size: 10pt;
+                margin-top: 0;
+            }
+            
+            /* Evitar saltos de página dentro de las filas */
+            tr {
+                page-break-inside: avoid;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -109,6 +191,8 @@
     <div class="container">
         <h1>Plan de Pagos Carlitos</h1>
         <p class="subtitle">Seguimiento de pagos semanales y balance restante.</p>
+
+        <!-- Botón de Impresión --><button class="print-button" onclick="window.print()">Imprimir Plan de Pagos</button>
 
         <table>
             <thead>
@@ -222,20 +306,20 @@
                 <tr>
                     <td class="month-header" colspan="6">NOVIEMBRE DE 2025</td>
                 </tr>
-                <tr>
+                <!-- Fila Modificada --><tr>
                     <td>Semana 10</td>
-                    <td class="text-right red-text">$11,000.00</td>
+                    <td class="text-right red-text">$15,000.00</td>
                     <td>1 de noviembre de 2025</td>
-                    <td class="bank-col"></td>
-                    <td class="text-right blue-text">$71,000.00</td>
+                    <td class="bank-col">Efectivo Mario</td>
+                    <td class="text-right blue-text">$67,000.00</td>
                     <td class="signature-col"></td>
                 </tr>
-                <tr>
+                <!-- Saldos Recalculados --><tr>
                     <td>Semana 11</td>
                     <td class="text-right red-text">$11,000.00</td>
                     <td>8 de noviembre de 2025</td>
                     <td class="bank-col"></td>
-                    <td class="text-right blue-text">$60,000.00</td>
+                    <td class="text-right blue-text">$56,000.00</td>
                     <td class="signature-col"></td>
                 </tr>
                 <tr>
@@ -243,7 +327,7 @@
                     <td class="text-right red-text">$11,000.00</td>
                     <td>15 de noviembre de 2025</td>
                     <td class="bank-col"></td>
-                    <td class="text-right blue-text">$49,000.00</td>
+                    <td class="text-right blue-text">$45,000.00</td>
                     <td class="signature-col"></td>
                 </tr>
                 <tr>
@@ -251,7 +335,7 @@
                     <td class="text-right red-text">$11,000.00</td>
                     <td>22 de noviembre de 2025</td>
                     <td class="bank-col"></td>
-                    <td class="text-right blue-text">$38,000.00</td>
+                    <td class="text-right blue-text">$34,000.00</td>
                     <td class="signature-col"></td>
                 </tr>
                 <tr>
@@ -259,18 +343,18 @@
                     <td class="text-right red-text">$11,000.00</td>
                     <td>29 de noviembre de 2025</td>
                     <td class="bank-col"></td>
-                    <td class="text-right blue-text">$27,000.00</td>
+                    <td class="text-right blue-text">$23,000.00</td>
                     <td class="signature-col"></td>
                 </tr>
                 <tr>
                     <td class="month-header" colspan="6">DICIEMBRE DE 2025</td>
                 </tr>
-                <tr>
+                <!-- Saldos Recalculados --><tr>
                     <td>Semana 15</td>
                     <td class="text-right red-text">$11,000.00</td>
                     <td>6 de diciembre de 2025</td>
                     <td class="bank-col"></td>
-                    <td class="text-right blue-text">$16,000.00</td>
+                    <td class="text-right blue-text">$12,000.00</td>
                     <td class="signature-col"></td>
                 </tr>
                 <tr>
@@ -278,24 +362,8 @@
                     <td class="text-right red-text">$11,000.00</td>
                     <td>13 de diciembre de 2025</td>
                     <td class="bank-col"></td>
-                    <td class="text-right blue-text">$5,000.00</td>
-                    <td class="signature-col"></td>
-                </tr>
-                <tr>
-                    <td>Semana 17</td>
-                    <td class="text-right red-text">$5,000.00</td>
-                    <td>20 de diciembre de 2025</td>
-                    <td class="bank-col"></td>
-                    <td class="text-right blue-text">$0.00</td>
+                    <td class="text-right blue-text">$1,000.00</td>
                     <td class="signature-col"></td>
                 </tr>
             </tbody>
         </table>
-
-        <footer>
-            <span>Page 1 of 1</span>
-        </footer>
-    </div>
-
-</body>
-</html>

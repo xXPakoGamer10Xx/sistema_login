@@ -67,6 +67,26 @@
                                     </div>
                                 {% endif %}
                             </div>
+
+                            <!-- Nombre de versión -->
+                            <div class="col-md-12">
+                                <label for="version_nombre" class="form-label">
+                                    <i class="fas fa-tag me-1"></i>
+                                    Nombre de esta versión (opcional)
+                                </label>
+                                {{ form.version_nombre(class="form-control", placeholder="Ej: Versión Final, Borrador 1, Prueba Matutino...") }}
+                                {% if form.version_nombre.errors %}
+                                    <div class="text-danger small">
+                                        {% for error in form.version_nombre.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <small class="text-muted">
+                                    <i class="fas fa-lightbulb"></i> 
+                                    Útil para distinguir entre múltiples generaciones. Si no se especifica, se genera automáticamente.
+                                </small>
+                            </div>
                         </div>
 
                         <!-- Días personalizados (se muestra solo si se selecciona "personalizado") -->
@@ -107,7 +127,7 @@
                                 <li><strong>Algoritmo:</strong> Google OR-Tools CP-SAT Solver (optimización avanzada)</li>
                                 <li>El sistema usará las <strong>materias y profesores ya asignados</strong> en el grupo seleccionado</li>
                                 <li>Se respetarán las restricciones de horario y disponibilidad</li>
-                                <li>Los horarios existentes para este período serán reemplazados</li>
+                                <li><strong>Versiones múltiples:</strong> Cada generación se guarda como una versión separada - puedes crear varias y compararlas</li>
                                 <li>Se optimizará la distribución equitativa de carga horaria</li>
                                 <li>Se resolverán conflictos automáticamente usando programación por restricciones</li>
                             </ul>

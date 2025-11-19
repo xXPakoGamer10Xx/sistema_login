@@ -2580,9 +2580,18 @@ def generar_horarios_academicos():
             flash('Grupo no encontrado.', 'error')
             return render_template('admin/generar_horarios.html', form=form, resultado=resultado)
 
-        # Calcular período académico basado en la fecha actual
+        # Calcular período académico y versión
         año_actual = datetime.now().year
-        periodo_academico = f"{año_actual} - {año_actual}"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Si el usuario proporcionó un nombre de versión, usarlo; si no, generar automáticamente
+        if form.version_nombre.data and form.version_nombre.data.strip():
+            version_nombre = form.version_nombre.data.strip()
+        else:
+            version_nombre = f"Generación {timestamp}"
+        
+        # El periodo_academico sigue siendo único para evitar conflictos
+        periodo_academico = f"{año_actual}-{año_actual}_{timestamp}"
 
         # Preparar días de la semana
         dias_semana = []
@@ -2609,6 +2618,7 @@ def generar_horarios_academicos():
             grupo_id=grupo_id,
             dias_semana=dias_semana,
             periodo_academico=periodo_academico,
+            version_nombre=version_nombre,
             creado_por=current_user.id
         )
 
@@ -2648,7 +2658,6 @@ def editar_horario_academico(id):
         horario_academico.horario_id = int(form.horario_id.data)
         horario_academico.dia_semana = form.dia_semana.data
         horario_academico.grupo = form.grupo.data
-        horario_academico.aula = form.aula.data
         # El periodo_academico se calcula automáticamente en el modelo
 
         db.session.commit()
@@ -2660,7 +2669,6 @@ def editar_horario_academico(id):
     form.horario_id.data = str(horario_academico.horario_id)
     form.dia_semana.data = horario_academico.dia_semana
     form.grupo.data = horario_academico.grupo
-    form.aula.data = horario_academico.aula
 
     return render_template('admin/editar_horario_academico.html',
                          form=form,

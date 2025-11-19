@@ -437,6 +437,11 @@ class ExportarMateriasForm(FlaskForm):
     submit = SubmitField('Exportar a PDF')
 
 class GenerarHorariosForm(FlaskForm):
+    """Formulario para generar horarios académicos"""
+    version_nombre = StringField('Nombre de esta versión (opcional)', validators=[
+        Optional(),
+        Length(max=100, message='El nombre no puede exceder 100 caracteres')
+    ], description='Ej: "Versión Final", "Borrador 1", "Prueba Matutino". Si no se especifica, se genera automáticamente.')
     """Formulario para generar horarios académicos automáticamente"""
     
     # Ahora solo se necesita seleccionar el grupo
@@ -484,8 +489,6 @@ class EditarHorarioAcademicoForm(FlaskForm):
         ('E', 'Grupo E'),
         ('F', 'Grupo F')
     ], validators=[DataRequired()], default='A')
-    
-    aula = StringField('Aula', validators=[Length(max=20, message='Máximo 20 caracteres')])
     
     submit = SubmitField('Guardar Cambios')
 
