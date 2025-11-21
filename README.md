@@ -157,13 +157,242 @@ El sistema utiliza SQLite por defecto. La base de datos se crea automáticamente
 
 ## Producción
 
-Para desplegar en producción:
+### Despliegue en Servidor Linux (Ubuntu/Debian)
 
-1. Cambia `SECRET_KEY` por una clave segura
-2. Configura una base de datos más robusta (PostgreSQL, MySQL)
-3. Desactiva el modo debug
-4. Usa un servidor WSGI como Gunicorn
-5. Configura HTTPS
+#### 1. Preparar el Servidor
+
+```bash
+# Actualizar sistema e instalar dependencias
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip build-essential \
+    libssl-dev libffi-dev python3-dev nginx
+
+# Instalar Gunicorn (servidor WSGI para producción)
+# Se instalará dentro del venv en el siguiente paso
+```
+
+#### 2. Configurar la Aplicación
+
+```bash
+# Clonar el proyecto (o subir archivos vía SCP/FTP)
+cd /opt
+sudo git clone <tu-repositorio-url> sistema_login
+sudo chown -R $USER:$USER sistema_login
+cd sistema_login
+
+# Crear entorno virtual
+python3 -m venv venv
+source venv/bin/activate
+
+# Instalar dependencias (incluyendo Gunicorn)
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install gunicorn
+
+# Inicializar configuración del sistema
+python init_config.py
+
+# (Opcional) Poblar base de datos con datos de ejemplo
+# NOTA: Requiere que exista un usuario 'admin' primero
+python instance/poblar.py
+```
+
+#### 3. Configurar Variables de Entorno
+
+```bash
+# Crear archivo .env (NO subir a git)
+cat > .env << 'EOF'
+SECRET_KEY=tu_clave_super_secreta_generada_aleatoriamente_aqui
+FLASK_ENV=production
+DATABASE_URL=sqlite:///instance/sistema_academico.db
+EOF
+
+# Asegurar permisos
+chmod 600 .env
+```
+
+**Importante**: Modifica `app.py` para leer `SECRET_KEY` desde variables de entorno:
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'clave-por-defecto-insegura'
+```
+
+#### 4. Configurar Systemd (Inicio Automático)
+
+Crear archivo de servicio:
+```bash
+sudo nano /etc/systemd/system/sistema-login.service
+```
+
+Contenido del archivo:
+```ini
+[Unit]
+Description=Sistema Login - Gunicorn
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/sistema_login
+Environment="PATH=/opt/sistema_login/venv/bin"
+EnvironmentFile=/opt/sistema_login/.env
+ExecStart=/opt/sistema_login/venv/bin/gunicorn -w 4 -b 127.0.0.1:8000 app:app
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Ajustar permisos y habilitar servicio:
+```bash
+# Dar permisos al directorio
+sudo chown -R www-data:www-data /opt/sistema_login
+
+# Recargar systemd y habilitar servicio
+sudo systemctl daemon-reload
+sudo systemctl enable sistema-login.service
+sudo systemctl start sistema-login.service
+
+# Verificar estado
+sudo systemctl status sistema-login.service
+```
+
+#### 5. Configurar Nginx (Proxy Inverso)
+
+Crear configuración de sitio:
+```bash
+sudo nano /etc/nginx/sites-available/sistema-login
+```
+
+Contenido del archivo:
+```nginx
+server {
+    listen 80;
+    server_name tu-dominio.com;  # Cambiar por tu dominio o IP
+
+    # Logs
+    access_log /var/log/nginx/sistema-login-access.log;
+    error_log /var/log/nginx/sistema-login-error.log;
+
+    # Archivos estáticos
+    location /static {
+        alias /opt/sistema_login/static;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Proxy a Gunicorn
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Limitar tamaño de subida de archivos (para fotos de perfil)
+    client_max_body_size 10M;
+}
+```
+
+Activar sitio y reiniciar Nginx:
+```bash
+sudo ln -s /etc/nginx/sites-available/sistema-login /etc/nginx/sites-enabled/
+sudo nginx -t  # Verificar configuración
+sudo systemctl restart nginx
+```
+
+#### 6. Configurar HTTPS con Let's Encrypt (Recomendado)
+
+```bash
+# Instalar Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# Obtener certificado SSL (reemplazar email y dominio)
+sudo certbot --nginx -d tu-dominio.com --email tu@email.com --agree-tos --no-eff-email
+
+# Renovación automática (ya configurada por defecto)
+sudo certbot renew --dry-run
+```
+
+#### 7. Configurar Backups Automáticos
+
+```bash
+# Crear script de backup
+sudo nano /usr/local/bin/backup-sistema-login.sh
+```
+
+Contenido:
+```bash
+#!/bin/bash
+cd /opt/sistema_login
+source venv/bin/activate
+python backup_manager.py auto
+```
+
+Dar permisos y configurar cron:
+```bash
+sudo chmod +x /usr/local/bin/backup-sistema-login.sh
+
+# Editar crontab
+sudo crontab -e
+
+# Agregar línea (backup diario a las 2 AM)
+0 2 * * * /usr/local/bin/backup-sistema-login.sh
+```
+
+### Checklist de Producción
+
+Antes de poner en producción, verifica:
+
+- [x] `SECRET_KEY` cambiada por una clave segura (mínimo 32 caracteres aleatorios)
+- [x] Modo debug desactivado (`FLASK_ENV=production`)
+- [x] Base de datos con backups configurados
+- [x] Gunicorn instalado y corriendo con systemd
+- [x] Nginx configurado como proxy inverso
+- [x] HTTPS/SSL configurado con Let's Encrypt
+- [x] Firewall configurado (ufw):
+  ```bash
+  sudo ufw allow 22/tcp    # SSH
+  sudo ufw allow 80/tcp    # HTTP
+  sudo ufw allow 443/tcp   # HTTPS
+  sudo ufw enable
+  ```
+- [x] Logs configurados y rotación activa
+- [x] Permisos de archivos correctos (`www-data:www-data`)
+- [x] Variables de entorno en `.env` (no en git)
+- [x] Backups automáticos configurados
+- [x] Monitoreo del servicio activo
+
+### Comandos Útiles de Producción
+
+```bash
+# Ver logs del servicio
+sudo journalctl -u sistema-login.service -f
+
+# Reiniciar servicio
+sudo systemctl restart sistema-login.service
+
+# Ver logs de Nginx
+sudo tail -f /var/log/nginx/sistema-login-error.log
+
+# Ejecutar backup manual
+cd /opt/sistema_login && source venv/bin/activate && python backup_manager.py manual
+
+# Ver estado del sistema
+sudo systemctl status sistema-login.service nginx
+```
 
 ## Solución de Problemas
 
