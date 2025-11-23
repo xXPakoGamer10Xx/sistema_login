@@ -461,8 +461,7 @@ class Materia(db.Model):
     # Información académica
     cuatrimestre = db.Column(db.Integer, nullable=False)  # 1, 2, 3, etc.
     creditos = db.Column(db.Integer, nullable=False, default=3)
-    horas_teoricas = db.Column(db.Integer, nullable=False, default=0)
-    horas_practicas = db.Column(db.Integer, nullable=False, default=0)
+    horas_semanales = db.Column(db.Integer, nullable=False, default=0)  # Total de horas por semana
     
     # Relaciones
     carrera_id = db.Column(db.Integer, db.ForeignKey('carrera.id'), nullable=False)
@@ -477,20 +476,19 @@ class Materia(db.Model):
     creador = db.relationship('User', backref=db.backref('materias_creadas', lazy=True))
     
     def __init__(self, nombre, codigo, cuatrimestre, carrera_id, creditos=3, 
-                 horas_teoricas=0, horas_practicas=0, descripcion=None, creado_por=None):
+                 horas_semanales=0, descripcion=None, creado_por=None):
         self.nombre = nombre
         self.codigo = codigo.upper()
         self.cuatrimestre = cuatrimestre
         self.carrera_id = carrera_id
         self.creditos = creditos
-        self.horas_teoricas = horas_teoricas
-        self.horas_practicas = horas_practicas
+        self.horas_semanales = horas_semanales
         self.descripcion = descripcion
         self.creado_por = creado_por
     
     def get_horas_totales(self):
-        """Obtener total de horas (teóricas + prácticas)"""
-        return self.horas_teoricas + self.horas_practicas
+        """Obtener total de horas semanales"""
+        return self.horas_semanales
     
     def get_cuatrimestre_display(self):
         """Obtener nombre del cuatrimestre para mostrar"""

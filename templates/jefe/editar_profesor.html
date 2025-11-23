@@ -85,8 +85,8 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     {{ form.telefono.label(class="form-label") }}
-                                    {{ form.telefono(class="form-control", placeholder="Ej: 5512345678 (10 dígitos)", maxlength="10", pattern="[0-9]{10}") }}
-                                    <small class="text-muted">Ingresa 10 dígitos sin espacios ni guiones</small>
+                                    {{ form.telefono(class="form-control", placeholder="Ej: 5512345678 (10 dígitos)", maxlength="13", id="telefono_input") }}
+                                    <small class="text-muted">Los guiones y espacios se eliminarán automáticamente</small>
                                 </div>
                             </div>
                         </div>
@@ -134,6 +134,18 @@
 
 <script>
 $(document).ready(function() {
+    // Limpiar teléfono de caracteres no numéricos antes de enviar
+    const telefonoInput = document.querySelector('#telefono_input');
+    const form = telefonoInput ? telefonoInput.closest('form') : null;
+    
+    if (form && telefonoInput) {
+        form.addEventListener('submit', function(e) {
+            // Eliminar todos los caracteres que no sean dígitos
+            const cleanedValue = telefonoInput.value.replace(/\D/g, '');
+            telefonoInput.value = cleanedValue;
+        });
+    }
+
     // Mostrar/ocultar campo de tipo de profesor según el rol seleccionado
     function toggleTipoProfesor() {
         var rol = $('#rol').val();

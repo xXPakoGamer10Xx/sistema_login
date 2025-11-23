@@ -18,7 +18,7 @@
                         <i class="fas fa-info-circle me-2"></i>
                         <strong>Formato del archivo:</strong> El archivo debe contener las siguientes columnas obligatorias:
                         <code>nombre</code>, <code>codigo</code>, <code>cuatrimestre</code>.
-                        Las columnas opcionales son: <code>carrera_codigo</code>, <code>creditos</code>, <code>horas_teoricas</code>, <code>horas_practicas</code>, <code>descripcion</code>.
+                        Las columnas opcionales son: <code>carrera_codigo</code>, <code>creditos</code>, <code>horas_semanales</code>, <code>descripcion</code>.
                     </div>
 
                     <form method="POST" enctype="multipart/form-data">
@@ -57,6 +57,28 @@
                             {% endif %}
                             <div class="form-text">
                                 Si no se especifica una carrera en el archivo, se usará esta como predeterminada.
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            {{ form.restar_horas.label(class="form-label") }}
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-minus-circle"></i>
+                                </span>
+                                {{ form.restar_horas(class="form-control", type="number", min="0", max="20") }}
+                                <span class="input-group-text">hora(s)</span>
+                            </div>
+                            {% if form.restar_horas.errors %}
+                                {% for error in form.restar_horas.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <strong>Opcional:</strong> Se restarán estas horas a las horas_semanales de cada materia importada (mínimo 1 hora).
+                                <br>
+                                <strong>Ejemplo:</strong> Si una materia tiene 10 horas y restas 3, quedará con 7 horas.
                             </div>
                         </div>
 
@@ -173,8 +195,7 @@
                                     <th>cuatrimestre</th>
                                     <th>carrera_codigo</th>
                                     <th>creditos</th>
-                                    <th>horas_teoricas</th>
-                                    <th>horas_practicas</th>
+                                    <th>horas_semanales</th>
                                     <th>descripcion</th>
                                 </tr>
                             </thead>
@@ -185,8 +206,7 @@
                                     <td>1</td>
                                     <td>ING-SIS</td>
                                     <td>4</td>
-                                    <td>3</td>
-                                    <td>2</td>
+                                    <td>5</td>
                                     <td>Fundamentos de programación</td>
                                 </tr>
                                 <tr>
@@ -195,8 +215,7 @@
                                     <td>1</td>
                                     <td>ING-SIS</td>
                                     <td>3</td>
-                                    <td>3</td>
-                                    <td>0</td>
+                                    <td>4</td>
                                     <td>Lógica y matemáticas básicas</td>
                                 </tr>
                             </tbody>

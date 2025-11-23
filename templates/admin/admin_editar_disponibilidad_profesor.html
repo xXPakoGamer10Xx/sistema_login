@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Disponibilidad - {{ profesor.get_nombre_completo() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="bi bi-pencil-square"></i> Editar Disponibilidad Horaria</h2>
+                    <p class="text-muted mb-0">
+                        Profesor: <strong>{{ profesor.get_nombre_completo() }}</strong> | 
+                        Panel de Administrador
+                    </p>
+                </div>
+                <a href="{{ url_for('admin_disponibilidad_profesores') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver al Listado
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del profesor -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <p class="mb-1"><strong>Email:</strong></p>
+                            <p class="text-muted">{{ profesor.email }}</p>
+                        </div>
+                        <div class="col-md-2">
+                            <p class="mb-1"><strong>Teléfono:</strong></p>
+                            <p class="text-muted">{{ profesor.telefono or 'No registrado' }}</p>
+                        </div>
+                        <div class="col-md-2">
+                            <p class="mb-1"><strong>Rol:</strong></p>
+                            {% if profesor.rol == 'profesor_completo' %}
+                            <span class="badge bg-primary">Tiempo Completo</span>
+                            {% else %}
+                            <span class="badge bg-info">Asignatura</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-2">
+                            <p class="mb-1"><strong>Estado:</strong></p>
+                            {% if profesor.activo %}
+                            <span class="badge bg-success">Activo</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactivo</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <p class="mb-1"><strong>Carrera(s):</strong></p>
+                            {% if profesor.carreras %}
+                            {% for carrera in profesor.carreras %}
+                            <span class="badge bg-secondary me-1">{{ carrera.nombre }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span class="text-muted">Sin carrera asignada</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario de disponibilidad -->
+    <form method="POST">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-calendar3"></i> Horario de Disponibilidad</h5>
+            </div>
+            <div class="card-body">
+                <!-- Instrucciones -->
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Instrucciones:</strong> Marca las casillas correspondientes a los horarios en los que el profesor está disponible para impartir clases. Puedes usar los botones de selección rápida para marcar/desmarcar columnas o filas completas.
+                </div>
+
+                <!-- Botones de selección rápida por días -->
+                <div class="mb-3">
+                    <h6>Selección rápida por día:</h6>
+                    <div class="btn-group btn-group-sm flex-wrap" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="toggleDia('lunes')">
+                            <i class="bi bi-check-square"></i> Lunes
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="toggleDia('martes')">
+                            <i class="bi bi-check-square"></i> Martes
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="toggleDia('miercoles')">
+                            <i class="bi bi-check-square"></i> Miércoles
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="toggleDia('jueves')">
+                            <i class="bi bi-check-square"></i> Jueves
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="toggleDia('viernes')">
+                            <i class="bi bi-check-square"></i> Viernes
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="toggleDia('sabado')">
+                            <i class="bi bi-check-square"></i> Sábado
+                        </button>
+                        <button type="button" class="btn btn-outline-success" onclick="selectAll()">
+                            <i class="bi bi-check-all"></i> Seleccionar Todo
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="deselectAll()">
+                            <i class="bi bi-x-square"></i> Deseleccionar Todo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Botones de selección rápida por turno -->
+                <div class="mb-3">
+                    <h6>Selección rápida por turno:</h6>
+                    <div class="btn-group btn-group-sm flex-wrap" role="group">
+                        <button type="button" class="btn btn-outline-warning" onclick="toggleTurno('matutino')">
+                            <i class="bi bi-sunrise"></i> Turno Matutino
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="toggleTurno('vespertino')">
+                            <i class="bi bi-sunset"></i> Turno Vespertino
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla de disponibilidad -->
+                <div class="table-responsive">
+                    {% if horarios %}
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="text-center">Turno</th>
+                                <th class="text-center">Horario</th>
+                                <th class="text-center">Lunes</th>
+                                <th class="text-center">Martes</th>
+                                <th class="text-center">Miércoles</th>
+                                <th class="text-center">Jueves</th>
+                                <th class="text-center">Viernes</th>
+                                <th class="text-center">Sábado</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for horario in horarios %}
+                            <tr>
+                                <td class="text-center">
+                                    {% if horario.turno == 'matutino' %}
+                                    <span class="badge bg-warning text-dark">Matutino</span>
+                                    {% elif horario.turno == 'vespertino' %}
+                                    <span class="badge bg-primary">Vespertino</span>
+                                    {% else %}
+                                    <span class="badge bg-dark">Nocturno</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <strong>{{ horario.hora_inicio }} - {{ horario.hora_fin }}</strong>
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" 
+                                           name="disp_{{ horario.id }}_lunes" 
+                                           class="form-check-input disp-checkbox dia-lunes horario-{{ horario.id }} turno-{{ horario.turno }}"
+                                           {% if disponibilidad_dict.get((horario.id, 'lunes')) %}checked{% endif %}>
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" 
+                                           name="disp_{{ horario.id }}_martes" 
+                                           class="form-check-input disp-checkbox dia-martes horario-{{ horario.id }} turno-{{ horario.turno }}"
+                                           {% if disponibilidad_dict.get((horario.id, 'martes')) %}checked{% endif %}>
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" 
+                                           name="disp_{{ horario.id }}_miercoles" 
+                                           class="form-check-input disp-checkbox dia-miercoles horario-{{ horario.id }} turno-{{ horario.turno }}"
+                                           {% if disponibilidad_dict.get((horario.id, 'miercoles')) %}checked{% endif %}>
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" 
+                                           name="disp_{{ horario.id }}_jueves" 
+                                           class="form-check-input disp-checkbox dia-jueves horario-{{ horario.id }} turno-{{ horario.turno }}"
+                                           {% if disponibilidad_dict.get((horario.id, 'jueves')) %}checked{% endif %}>
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" 
+                                           name="disp_{{ horario.id }}_viernes" 
+                                           class="form-check-input disp-checkbox dia-viernes horario-{{ horario.id }} turno-{{ horario.turno }}"
+                                           {% if disponibilidad_dict.get((horario.id, 'viernes')) %}checked{% endif %}>
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" 
+                                           name="disp_{{ horario.id }}_sabado" 
+                                           class="form-check-input disp-checkbox dia-sabado horario-{{ horario.id }} turno-{{ horario.turno }}"
+                                           {% if disponibilidad_dict.get((horario.id, 'sabado')) %}checked{% endif %}>
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-secondary" 
+                                            onclick="toggleHorario({{ horario.id }})"
+                                            title="Marcar/Desmarcar toda la fila">
+                                        <i class="bi bi-arrow-left-right"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> No hay horarios configurados en el sistema.
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('admin_disponibilidad_profesores') }}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-save"></i> Guardar Disponibilidad
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// Función para marcar/desmarcar un día completo
+function toggleDia(dia) {
+    const checkboxes = document.querySelectorAll('.dia-' + dia);
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+}
+
+// Función para marcar/desmarcar un horario completo (fila)
+function toggleHorario(horarioId) {
+    const checkboxes = document.querySelectorAll('.horario-' + horarioId);
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+}
+
+// Función para seleccionar todos los checkboxes
+function selectAll() {
+    document.querySelectorAll('.disp-checkbox').forEach(cb => cb.checked = true);
+}
+
+// Función para deseleccionar todos los checkboxes
+function deselectAll() {
+    document.querySelectorAll('.disp-checkbox').forEach(cb => cb.checked = false);
+}
+
+// Función para marcar/desmarcar un turno completo
+function toggleTurno(turno) {
+    const checkboxes = document.querySelectorAll('.turno-' + turno);
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+}
+</script>
+
+<style>
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.form-check-input {
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-group .btn {
+    margin: 2px;
+}
+</style>
+{% endblock %}

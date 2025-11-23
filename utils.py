@@ -425,12 +425,17 @@ Pedro,Sánchez,Ramírez,pedro.sanchez@universidad.edu,555-3456,admin,,
     
     return response
 
-def procesar_archivo_materias(archivo, carrera_defecto_id=None):
+def procesar_archivo_materias(archivo, carrera_defecto_id=None, restar_horas=0):
     """
     Procesar archivo CSV/Excel con datos de materias
     
     Formato esperado del archivo:
-    - nombre, codigo, cuatrimestre, carrera_codigo (opcional), creditos, horas_teoricas, horas_practicas, descripcion
+    - nombre, codigo, cuatrimestre, carrera_codigo (opcional), creditos, horas_semanales, descripcion
+    
+    Args:
+        archivo: Archivo CSV/Excel a procesar
+        carrera_defecto_id: ID de carrera por defecto si no se especifica en el archivo
+        restar_horas: Cantidad de horas a restar de horas_semanales de cada materia (default: 0)
     """
     resultado = {
         'exito': False,
@@ -510,8 +515,12 @@ def procesar_archivo_materias(archivo, carrera_defecto_id=None):
                 
                 # Obtener valores opcionales
                 creditos = int(row['creditos']) if 'creditos' in df.columns and not pd.isna(row['creditos']) else 3
-                horas_teoricas = int(row['horas_teoricas']) if 'horas_teoricas' in df.columns and not pd.isna(row['horas_teoricas']) else 3
-                horas_practicas = int(row['horas_practicas']) if 'horas_practicas' in df.columns and not pd.isna(row['horas_practicas']) else 0
+                horas_semanales = int(row['horas_semanales']) if 'horas_semanales' in df.columns and not pd.isna(row['horas_semanales']) else 5
+                
+                # Aplicar resta de horas si se especificó
+                if restar_horas > 0:
+                    horas_semanales = max(1, horas_semanales - restar_horas)  # Mínimo 1 hora
+                
                 descripcion = str(row['descripcion']).strip() if 'descripcion' in df.columns and not pd.isna(row['descripcion']) and str(row['descripcion']).upper() != 'NULL' else None
                 
                 if materia_existente:
@@ -519,8 +528,7 @@ def procesar_archivo_materias(archivo, carrera_defecto_id=None):
                     materia_existente.nombre = str(row['nombre']).strip()
                     materia_existente.cuatrimestre = cuatrimestre
                     materia_existente.creditos = creditos
-                    materia_existente.horas_teoricas = horas_teoricas
-                    materia_existente.horas_practicas = horas_practicas
+                    materia_existente.horas_semanales = horas_semanales
                     materia_existente.descripcion = descripcion
                     resultado['actualizados'] += 1
                 else:
@@ -531,8 +539,7 @@ def procesar_archivo_materias(archivo, carrera_defecto_id=None):
                         cuatrimestre=cuatrimestre,
                         carrera_id=carrera_id,
                         creditos=creditos,
-                        horas_teoricas=horas_teoricas,
-                        horas_practicas=horas_practicas,
+                        horas_semanales=horas_semanales,
                         descripcion=descripcion,
                         creado_por=1  # Admin por defecto
                     )

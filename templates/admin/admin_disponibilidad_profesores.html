@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+{% block title %}Disponibilidad de Profesores - Administrador{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="bi bi-clock-history"></i> Disponibilidad Horaria de Profesores</h2>
+                    <p class="text-muted mb-0">Panel de Administrador - Gestión Global</p>
+                </div>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver al Panel
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0">Total de Profesores</h6>
+                            <h2 class="mb-0">{{ total_profesores }}</h2>
+                        </div>
+                        <i class="bi bi-people-fill" style="font-size: 3rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0">Con Disponibilidad</h6>
+                            <h2 class="mb-0">{{ profesores_con_disponibilidad }}</h2>
+                        </div>
+                        <i class="bi bi-check-circle-fill" style="font-size: 3rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0">Sin Disponibilidad</h6>
+                            <h2 class="mb-0">{{ total_profesores - profesores_con_disponibilidad }}</h2>
+                        </div>
+                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 3rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtros de Búsqueda</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin_disponibilidad_profesores') }}">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="carrera" class="form-label">Carrera</label>
+                        <select name="carrera" id="carrera" class="form-select">
+                            <option value="">Todas las carreras</option>
+                            {% for carrera in carreras %}
+                            <option value="{{ carrera.id }}" {% if carrera_id == carrera.id %}selected{% endif %}>
+                                {{ carrera.nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="rol" class="form-label">Tipo de Profesor</label>
+                        <select name="rol" id="rol" class="form-select">
+                            <option value="">Todos los tipos</option>
+                            <option value="profesor_completo" {% if rol_filtro == 'profesor_completo' %}selected{% endif %}>
+                                Tiempo Completo
+                            </option>
+                            <option value="profesor_asignatura" {% if rol_filtro == 'profesor_asignatura' %}selected{% endif %}>
+                                Asignatura
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="bi bi-search"></i> Filtrar
+                        </button>
+                        <a href="{{ url_for('admin_disponibilidad_profesores') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Limpiar
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de profesores -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="bi bi-list-ul"></i> Listado de Profesores</h5>
+        </div>
+        <div class="card-body">
+            {% if profesores %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Nombre Completo</th>
+                            <th>Email</th>
+                            <th>Teléfono</th>
+                            <th>Rol</th>
+                            <th>Carrera(s)</th>
+                            <th class="text-center">Estado Disponibilidad</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for profesor in profesores %}
+                        {% set tiene_disponibilidad = profesor.disponibilidades|selectattr('activo', 'equalto', True)|list|length > 0 %}
+                        <tr>
+                            <td>
+                                <strong>{{ profesor.get_nombre_completo() }}</strong>
+                            </td>
+                            <td>
+                                <i class="bi bi-envelope"></i> {{ profesor.email }}
+                            </td>
+                            <td>
+                                {% if profesor.telefono %}
+                                <i class="bi bi-telephone"></i> {{ profesor.telefono }}
+                                {% else %}
+                                <span class="text-muted">No registrado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if profesor.rol == 'profesor_completo' %}
+                                <span class="badge bg-primary">Tiempo Completo</span>
+                                {% else %}
+                                <span class="badge bg-info">Asignatura</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if profesor.carreras %}
+                                {% for carrera in profesor.carreras %}
+                                <span class="badge bg-secondary me-1">{{ carrera.codigo }}</span>
+                                {% endfor %}
+                                {% else %}
+                                <span class="text-muted">Sin carrera</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if tiene_disponibilidad %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> Configurada
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-exclamation-triangle"></i> Sin configurar
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('admin_ver_disponibilidad_profesor', id=profesor.id) }}" 
+                                       class="btn btn-sm btn-info" 
+                                       title="Ver disponibilidad">
+                                        <i class="bi bi-eye"></i> Ver
+                                    </a>
+                                    <a href="{{ url_for('admin_editar_disponibilidad_profesor', id=profesor.id) }}" 
+                                       class="btn btn-sm btn-primary" 
+                                       title="Editar disponibilidad">
+                                        <i class="bi bi-pencil"></i> Editar
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info text-center" role="alert">
+                <i class="bi bi-info-circle"></i> No hay profesores registrados que coincidan con los filtros aplicados.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Información adicional -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Información para Administradores</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Desde este módulo puedes gestionar la disponibilidad horaria de <strong>todos</strong> los profesores del sistema.</li>
+                        <li>Los profesores pueden registrar su propia disponibilidad al crear su cuenta o desde su panel.</li>
+                        <li>Como administrador, puedes <strong>ver</strong> y <strong>editar</strong> la disponibilidad de cualquier profesor.</li>
+                        <li>Usa los filtros para encontrar profesores por carrera o tipo de contrato.</li>
+                        <li>La disponibilidad configurada se utiliza en el generador automático de horarios.</li>
+                        <li>Se recomienda que todos los profesores tengan su disponibilidad actualizada para optimizar la generación de horarios.</li>
+                        <li>Los cambios en disponibilidad quedan registrados con tu usuario y fecha para trazabilidad.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(0,123,255,0.05);
+}
+
+.btn-group .btn {
+    margin: 0 2px;
+}
+</style>
+{% endblock %}

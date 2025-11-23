@@ -81,33 +81,23 @@
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                {{ form.horas_teoricas.label(class="form-label") }}
+                                {{ form.horas_semanales.label(class="form-label") }}
                                 <div class="input-group">
                                     <span class="input-group-text">
-                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        <i class="fas fa-clock"></i>
                                     </span>
-                                    {{ form.horas_teoricas(class="form-control") }}
+                                    {{ form.horas_semanales(class="form-control") }}
+                                    <span class="input-group-text">h/semana</span>
                                 </div>
-                                {% if form.horas_teoricas.errors %}
-                                    {% for error in form.horas_teoricas.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                {% endfor %}
-                            {% endif %}
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                {{ form.horas_practicas.label(class="form-label") }}
-                                <div class="input-group">
-                                    <span class="input-group-text">
-                                        <i class="fas fa-flask"></i>
-                                    </span>
-                                    {{ form.horas_practicas(class="form-control") }}
-                                </div>
-                                {% if form.horas_practicas.errors %}
-                                    {% for error in form.horas_practicas.errors %}
+                                {% if form.horas_semanales.errors %}
+                                    {% for error in form.horas_semanales.errors %}
                                         <div class="text-danger small">{{ error }}</div>
                                     {% endfor %}
                                 {% endif %}
+                                <small class="text-muted">Total de horas que se impartirán por semana</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
                             </div>
                         </div>
 
@@ -170,10 +160,9 @@
                             <p class="text-muted">{{ materia.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Horas Totales:</strong></p>
+                            <p><strong>Horas Semanales:</strong></p>
                             <p class="text-muted">
-                                <span class="badge bg-primary">{{ materia.get_horas_totales() }} horas</span>
-                                ({{ materia.horas_teoricas }} teóricas + {{ materia.horas_practicas }} prácticas)
+                                <span class="badge bg-primary">{{ materia.horas_semanales }} horas/semana</span>
                             </p>
                         </div>
                     </div>

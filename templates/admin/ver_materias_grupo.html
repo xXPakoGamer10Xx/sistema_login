@@ -193,7 +193,7 @@
                                             <strong class="text-dark">{{ grupo.materias|sum(attribute='creditos') }}</strong>
                                         </th>
                                         <th class="text-center">
-                                            <strong class="text-dark">{{ grupo.materias|sum(attribute='horas_teoricas') + grupo.materias|sum(attribute='horas_practicas') }}h</strong>
+                                            <strong class="text-dark">{{ grupo.materias|sum(attribute='horas_semanales') }}h</strong>
                                         </th>
                                         <th>
                                             <strong class="text-dark">{{ resumen.profesores_count }} profesores únicos</strong>

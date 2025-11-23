@@ -3,11 +3,18 @@ from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SelectField, SelectMultipleField, SubmitField, IntegerField, TimeField, TextAreaField, BooleanField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError, NumberRange, Optional
 from models import User, Horario, Carrera, Materia
+import re
 
 def validate_not_zero(form, field):
     """Validador personalizado para asegurar que el valor no sea 0"""
     if field.data == 0:
         raise ValidationError('Debe seleccionar una opción válida')
+
+def clean_phone_number(phone):
+    """Limpia el número de teléfono eliminando caracteres no numéricos"""
+    if phone:
+        return re.sub(r'\D', '', phone)
+    return phone
 
 class LoginForm(FlaskForm):
     """Formulario de inicio de sesión"""
@@ -77,6 +84,13 @@ class RegistrationForm(FlaskForm):
             (str(c.id), f"{c.codigo} - {c.nombre}") 
             for c in Carrera.query.filter_by(activa=True).order_by(Carrera.nombre).all()
         ]
+    
+    def validate_telefono(self, telefono):
+        """Limpiar teléfono de caracteres no numéricos"""
+        if telefono.data:
+            telefono.data = clean_phone_number(telefono.data)
+            if len(telefono.data) != 10:
+                raise ValidationError('El teléfono debe tener exactamente 10 dígitos')
     
     def validate_username(self, username):
         """Validar que el usuario no exista"""
@@ -355,15 +369,10 @@ class MateriaForm(FlaskForm):
         NumberRange(min=1, max=10, message='Los créditos deben estar entre 1 y 10')
     ], default=3)
     
-    horas_teoricas = IntegerField('Horas Teóricas', validators=[
-        DataRequired(message='Las horas teóricas son obligatorias'),
-        NumberRange(min=0, max=10, message='Las horas teóricas deben estar entre 0 y 10')
-    ], default=3)
-    
-    horas_practicas = IntegerField('Horas Prácticas', validators=[
-        DataRequired(message='Las horas prácticas son obligatorias'),
-        NumberRange(min=0, max=10, message='Las horas prácticas deben estar entre 0 y 10')
-    ], default=0)
+    horas_semanales = IntegerField('Horas Semanales', validators=[
+        DataRequired(message='Las horas semanales son obligatorias'),
+        NumberRange(min=1, max=50, message='Las horas semanales deben estar entre 1 y 50')
+    ], default=5)
     
     carrera = SelectField('Carrera', validators=[DataRequired(message='Debe seleccionar una carrera')])
     
@@ -398,6 +407,11 @@ class ImportarMateriasForm(FlaskForm):
     carrera_defecto = SelectField('Carrera por Defecto', validators=[
         Optional()
     ])
+    
+    restar_horas = IntegerField('Restar Horas a cada Materia', validators=[
+        Optional(),
+        NumberRange(min=0, max=20, message='Las horas a restar deben estar entre 0 y 20')
+    ], default=0)
     
     submit = SubmitField('Importar Materias')
     
@@ -632,6 +646,13 @@ class AgregarProfesorForm(FlaskForm):
         
         return disponibilidades
     
+    def validate_telefono(self, telefono):
+        """Limpiar teléfono de caracteres no numéricos"""
+        if telefono.data:
+            telefono.data = clean_phone_number(telefono.data)
+            if len(telefono.data) != 10:
+                raise ValidationError('El teléfono debe tener exactamente 10 dígitos')
+    
     def validate_username(self, username):
         """Validar que el usuario no exista"""
         from models import User
@@ -720,6 +741,13 @@ class AgregarUsuarioForm(FlaskForm):
             for c in carreras_activas
         ]
 
+    def validate_telefono(self, telefono):
+        """Limpiar teléfono de caracteres no numéricos"""
+        if telefono.data:
+            telefono.data = clean_phone_number(telefono.data)
+            if len(telefono.data) != 10:
+                raise ValidationError('El teléfono debe tener exactamente 10 dígitos')
+    
     def validate_username(self, username):
         """Validar que el usuario no exista"""
         user = User.query.filter_by(username=username.data).first()
@@ -763,6 +791,28 @@ class AgregarUsuarioForm(FlaskForm):
         if self.rol.data == 'profesor' and self.tipo_profesor.data:
             return self.tipo_profesor.data
         return self.rol.data
+    
+    def get_disponibilidades_data(self):
+        """Obtener los datos de disponibilidad del formulario"""
+        from flask import request
+        disponibilidades = []
+        
+        # Procesar todos los campos que empiecen con 'disp_' desde request.form
+        for field_name in request.form.keys():
+            if field_name.startswith('disp_'):
+                parts = field_name.split('_')
+                if len(parts) >= 3:
+                    horario_id = parts[1]
+                    dia_semana = parts[2]
+                    disponible = True  # Si está en request.form, está marcado
+                    
+                    disponibilidades.append({
+                        'horario_id': int(horario_id),
+                        'dia_semana': dia_semana,
+                        'disponible': disponible
+                    })
+        
+        return disponibilidades
 
 class EditarUsuarioForm(FlaskForm):
     """Formulario para editar usuario existente"""
@@ -825,6 +875,13 @@ class EditarUsuarioForm(FlaskForm):
             for c in carreras_activas
         ]
 
+    def validate_telefono(self, telefono):
+        """Limpiar teléfono de caracteres no numéricos"""
+        if telefono.data:
+            telefono.data = clean_phone_number(telefono.data)
+            if len(telefono.data) != 10:
+                raise ValidationError('El teléfono debe tener exactamente 10 dígitos')
+    
     def validate_username(self, username):
         """Validar que el usuario no exista (excepto el actual)"""
         user = User.query.filter_by(username=username.data).first()
@@ -868,6 +925,28 @@ class EditarUsuarioForm(FlaskForm):
         if self.rol.data == 'profesor' and self.tipo_profesor.data:
             return self.tipo_profesor.data
         return self.rol.data
+    
+    def get_disponibilidades_data(self):
+        """Obtener los datos de disponibilidad del formulario"""
+        from flask import request
+        disponibilidades = []
+        
+        # Procesar todos los campos que empiecen con 'disp_' desde request.form
+        for field_name in request.form.keys():
+            if field_name.startswith('disp_'):
+                parts = field_name.split('_')
+                if len(parts) >= 3:
+                    horario_id = parts[1]
+                    dia_semana = parts[2]
+                    disponible = True  # Si está en request.form, está marcado
+                    
+                    disponibilidades.append({
+                        'horario_id': int(horario_id),
+                        'dia_semana': dia_semana,
+                        'disponible': disponible
+                    })
+        
+        return disponibilidades
 
 class EliminarUsuarioForm(FlaskForm):
     """Formulario para confirmar eliminación de usuario"""

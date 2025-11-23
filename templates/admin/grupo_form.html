@@ -24,6 +24,20 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
+                                    {{ form.cuatrimestre.label(class="form-label") }}
+                                    {{ form.cuatrimestre(class="form-control" + (" is-invalid" if form.cuatrimestre.errors else "")) }}
+                                    {% if form.cuatrimestre.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.cuatrimestre.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
                                     {{ form.numero_grupo.label(class="form-label") }}
                                     {{ form.numero_grupo(class="form-control" + (" is-invalid" if form.numero_grupo.errors else "")) }}
                                     {% if form.numero_grupo.errors %}
@@ -38,7 +52,9 @@
                                     </small>
                                 </div>
                             </div>
-                            
+                        </div>
+                        
+                        <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
                                     {{ form.turno.label(class="form-label") }}
@@ -52,9 +68,7 @@
                                     {% endif %}
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div class="row">
+                            
                             <div class="col-md-6">
                                 <div class="form-group">
                                     {{ form.carrera.label(class="form-label") }}
@@ -73,20 +87,6 @@
                                     {% if form.carrera.errors %}
                                         <div class="invalid-feedback">
                                             {% for error in form.carrera.errors %}
-                                                <span>{{ error }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    {{ form.cuatrimestre.label(class="form-label") }}
-                                    {{ form.cuatrimestre(class="form-control" + (" is-invalid" if form.cuatrimestre.errors else "")) }}
-                                    {% if form.cuatrimestre.errors %}
-                                        <div class="invalid-feedback">
-                                            {% for error in form.cuatrimestre.errors %}
                                                 <span>{{ error }}</span>
                                             {% endfor %}
                                         </div>

@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}Ver Disponibilidad - {{ profesor.get_nombre_completo() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="bi bi-eye"></i> Disponibilidad Horaria</h2>
+                    <p class="text-muted mb-0">
+                        Profesor: <strong>{{ profesor.get_nombre_completo() }}</strong> | 
+                        Panel de Administrador
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin_editar_disponibilidad_profesor', id=profesor.id) }}" class="btn btn-primary me-2">
+                        <i class="bi bi-pencil"></i> Editar Disponibilidad
+                    </a>
+                    <a href="{{ url_for('admin_disponibilidad_profesores') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Volver al Listado
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del profesor -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <p class="mb-1"><strong>Email:</strong></p>
+                            <p class="text-muted">{{ profesor.email }}</p>
+                        </div>
+                        <div class="col-md-2">
+                            <p class="mb-1"><strong>Teléfono:</strong></p>
+                            <p class="text-muted">{{ profesor.telefono or 'No registrado' }}</p>
+                        </div>
+                        <div class="col-md-2">
+                            <p class="mb-1"><strong>Rol:</strong></p>
+                            {% if profesor.rol == 'profesor_completo' %}
+                            <span class="badge bg-primary">Tiempo Completo</span>
+                            {% else %}
+                            <span class="badge bg-info">Asignatura</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-2">
+                            <p class="mb-1"><strong>Estado:</strong></p>
+                            {% if profesor.activo %}
+                            <span class="badge bg-success">Activo</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactivo</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <p class="mb-1"><strong>Horas Disponibles:</strong></p>
+                            <p class="mb-0">
+                                <span class="badge bg-info" style="font-size: 1rem;">
+                                    {{ total_horas_disponibles }} horas/semana
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <p class="mb-1"><strong>Carrera(s) Asignada(s):</strong></p>
+                            {% if profesor.carreras %}
+                            {% for carrera in profesor.carreras %}
+                            <span class="badge bg-secondary me-1">{{ carrera.nombre }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span class="text-muted">Sin carrera asignada</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de disponibilidad (solo lectura) -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-calendar3"></i> Horario de Disponibilidad</h5>
+        </div>
+        <div class="card-body">
+            {% if horarios and disponibilidad_dict %}
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle"></i> 
+                <strong>Vista de solo lectura:</strong> Este es el horario actual de disponibilidad del profesor. Las celdas marcadas con 
+                <span class="badge bg-success">✓</span> indican horarios disponibles.
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="text-center">Turno</th>
+                            <th class="text-center">Horario</th>
+                            <th class="text-center">Lunes</th>
+                            <th class="text-center">Martes</th>
+                            <th class="text-center">Miércoles</th>
+                            <th class="text-center">Jueves</th>
+                            <th class="text-center">Viernes</th>
+                            <th class="text-center">Sábado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for horario in horarios %}
+                        <tr>
+                            <td class="text-center">
+                                {% if horario.turno == 'matutino' %}
+                                <span class="badge bg-warning text-dark">Matutino</span>
+                                {% elif horario.turno == 'vespertino' %}
+                                <span class="badge bg-primary">Vespertino</span>
+                                {% else %}
+                                <span class="badge bg-dark">Nocturno</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <strong>{{ horario.hora_inicio }} - {{ horario.hora_fin }}</strong>
+                            </td>
+                            {% for dia in ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'] %}
+                            <td class="text-center {% if disponibilidad_dict.get((horario.id, dia)) %}table-success{% endif %}">
+                                {% if disponibilidad_dict.get((horario.id, dia)) %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-lg"></i> Disponible
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Resumen de disponibilidad por día -->
+            <div class="mt-4">
+                <h6>Resumen de disponibilidad por día:</h6>
+                <div class="row">
+                    {% for dia in ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'] %}
+                    <div class="col-md-2 mb-2">
+                        <div class="card text-center">
+                            <div class="card-body py-2">
+                                <h6 class="mb-1 text-capitalize">{{ dia }}</h6>
+                                <p class="mb-0">
+                                    <span class="badge bg-info">
+                                        {{ disponibilidad_dict | selectattr('1', 'equalto', dia) | list | length }} horas
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% elif not horarios %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> No hay horarios configurados en el sistema.
+            </div>
+            {% else %}
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle"></i> 
+                <strong>Este profesor aún no ha configurado su disponibilidad horaria.</strong>
+                <br>
+                Puedes configurarla usando el botón "Editar Disponibilidad" en la parte superior.
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('admin_disponibilidad_profesores') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver al Listado
+                </a>
+                <a href="{{ url_for('admin_editar_disponibilidad_profesor', id=profesor.id) }}" class="btn btn-primary">
+                    <i class="bi bi-pencil"></i> Editar Disponibilidad
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información adicional -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-lightbulb"></i> Información Útil</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>La disponibilidad horaria se utiliza en el generador automático de horarios.</li>
+                        <li>Un profesor solo puede ser asignado a horarios donde esté marcado como disponible.</li>
+                        <li>Si necesitas modificar la disponibilidad, usa el botón "Editar Disponibilidad".</li>
+                        <li>Los cambios en la disponibilidad quedan registrados con tu usuario y fecha.</li>
+                        <li>Los cambios no afectan horarios ya generados, solo futuras generaciones.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.table-success {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}

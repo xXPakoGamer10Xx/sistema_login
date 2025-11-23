@@ -653,6 +653,154 @@ def ver_materias_profesor_jefe(id):
                          horarios_por_materia=horarios_por_materia)
 
 # ==========================================
+# GESTIÓN DE DISPONIBILIDAD DE PROFESORES (JEFE DE CARRERA)
+# ==========================================
+
+@app.route('/jefe-carrera/profesores/disponibilidad')
+@login_required
+def disponibilidad_profesores_jefe():
+    """Módulo de disponibilidad horaria de profesores para jefes de carrera"""
+    if not current_user.is_jefe_carrera():
+        flash('No tienes permisos para acceder a esta página.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    if not current_user.carrera_id:
+        flash('No tienes una carrera asignada. Contacta al administrador.', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    # Obtener profesores de la carrera del jefe
+    profesores = User.query.filter(
+        User.rol.in_(['profesor_completo', 'profesor_asignatura']),
+        User.activo == True,
+        User.carreras.any(id=current_user.carrera_id)
+    ).order_by(User.apellido, User.nombre).all()
+    
+    # Calcular estadísticas de disponibilidad
+    total_profesores = len(profesores)
+    profesores_con_disponibilidad = 0
+    
+    for profesor in profesores:
+        disponibilidades = DisponibilidadProfesor.query.filter_by(
+            profesor_id=profesor.id,
+            activo=True
+        ).count()
+        if disponibilidades > 0:
+            profesores_con_disponibilidad += 1
+    
+    return render_template('jefe/disponibilidad_profesores.html',
+                         profesores=profesores,
+                         carrera=current_user.carrera,
+                         total_profesores=total_profesores,
+                         profesores_con_disponibilidad=profesores_con_disponibilidad)
+
+@app.route('/jefe-carrera/profesor/<int:id>/disponibilidad/editar', methods=['GET', 'POST'])
+@login_required
+def editar_disponibilidad_profesor_jefe(id):
+    """Editar disponibilidad horaria de un profesor (jefe de carrera)"""
+    if not current_user.is_jefe_carrera():
+        flash('No tienes permisos para acceder a esta página.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    profesor = User.query.get_or_404(id)
+    
+    # Verificar que el profesor pertenezca a la carrera del jefe
+    if not any(carrera.id == current_user.carrera_id for carrera in profesor.carreras):
+        flash('No tienes permisos para editar la disponibilidad de este profesor.', 'error')
+        return redirect(url_for('disponibilidad_profesores_jefe'))
+    
+    # Obtener horarios del sistema
+    horarios = Horario.query.filter_by(activo=True).order_by(Horario.turno, Horario.orden).all()
+    
+    if request.method == 'POST':
+        try:
+            # Procesar disponibilidad
+            dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+            
+            # Desactivar disponibilidades anteriores
+            DisponibilidadProfesor.query.filter_by(
+                profesor_id=profesor.id,
+                activo=True
+            ).update({'activo': False})
+            
+            # Crear nuevas disponibilidades basadas en los checkboxes marcados
+            for horario in horarios:
+                for dia in dias:
+                    field_name = f"disp_{horario.id}_{dia}"
+                    if request.form.get(field_name):
+                        nueva_disponibilidad = DisponibilidadProfesor(
+                            profesor_id=profesor.id,
+                            horario_id=horario.id,
+                            dia_semana=dia,
+                            disponible=True,
+                            creado_por=current_user.id
+                        )
+                        db.session.add(nueva_disponibilidad)
+            
+            db.session.commit()
+            flash(f'Disponibilidad de {profesor.get_nombre_completo()} actualizada exitosamente.', 'success')
+            return redirect(url_for('disponibilidad_profesores_jefe'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar disponibilidad: {str(e)}', 'error')
+    
+    # Cargar disponibilidades actuales
+    disponibilidad_dict = {}
+    disponibilidades_actuales = DisponibilidadProfesor.query.filter_by(
+        profesor_id=profesor.id,
+        activo=True
+    ).all()
+    
+    for disp in disponibilidades_actuales:
+        if disp.disponible:
+            disponibilidad_dict[(disp.horario_id, disp.dia_semana)] = True
+    
+    return render_template('jefe/editar_disponibilidad_profesor.html',
+                         profesor=profesor,
+                         horarios=horarios,
+                         disponibilidad_dict=disponibilidad_dict,
+                         carrera=current_user.carrera)
+
+@app.route('/jefe-carrera/profesor/<int:id>/disponibilidad/ver')
+@login_required
+def ver_disponibilidad_profesor_jefe(id):
+    """Ver disponibilidad horaria de un profesor (jefe de carrera)"""
+    if not current_user.is_jefe_carrera():
+        flash('No tienes permisos para acceder a esta página.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    profesor = User.query.get_or_404(id)
+    
+    # Verificar que el profesor pertenezca a la carrera del jefe
+    if not any(carrera.id == current_user.carrera_id for carrera in profesor.carreras):
+        flash('No tienes permisos para ver la disponibilidad de este profesor.', 'error')
+        return redirect(url_for('disponibilidad_profesores_jefe'))
+    
+    # Obtener horarios del sistema
+    horarios = Horario.query.filter_by(activo=True).order_by(Horario.turno, Horario.orden).all()
+    
+    # Cargar disponibilidades actuales
+    disponibilidad_dict = {}
+    disponibilidades_actuales = DisponibilidadProfesor.query.filter_by(
+        profesor_id=profesor.id,
+        activo=True
+    ).all()
+    
+    for disp in disponibilidades_actuales:
+        if disp.disponible:
+            disponibilidad_dict[(disp.horario_id, disp.dia_semana)] = True
+    
+    # Calcular total de horas disponibles
+    total_horas_disponibles = len(disponibilidades_actuales)
+    
+    return render_template('jefe/ver_disponibilidad_profesor.html',
+                         profesor=profesor,
+                         horarios=horarios,
+                         disponibilidad_dict=disponibilidad_dict,
+                         carrera=current_user.carrera,
+                         total_horas_disponibles=total_horas_disponibles)
+
+# ==========================================
 # ASIGNACIÓN MASIVA DE MATERIAS (JEFE DE CARRERA)
 # ==========================================
 @app.route('/jefe-carrera/asignacion-masiva-materias', methods=['GET', 'POST'])
@@ -838,27 +986,29 @@ def editar_materia_jefe(id):
         return redirect(url_for('gestionar_materias_jefe'))
     
     form = MateriaForm()
+    
+    # Pre-llenar el formulario solo en GET
+    if request.method == 'GET':
+        form.nombre.data = materia.nombre
+        form.codigo.data = materia.codigo
+        form.cuatrimestre.data = materia.cuatrimestre
+        form.creditos.data = materia.creditos
+        form.horas_semanales.data = materia.horas_semanales
+        form.descripcion.data = materia.descripcion
+        form.carrera.data = str(materia.carrera_id)
+    
     if form.validate_on_submit():
         materia.nombre = form.nombre.data
         materia.codigo = form.codigo.data.upper()
         materia.descripcion = form.descripcion.data
         materia.cuatrimestre = form.cuatrimestre.data
         materia.creditos = form.creditos.data
-        materia.horas_teoricas = form.horas_teoricas.data
-        materia.horas_practicas = form.horas_practicas.data
+        materia.horas_semanales = form.horas_semanales.data
+        materia.carrera_id = int(form.carrera.data)
         
         db.session.commit()
         flash('Materia actualizada exitosamente.', 'success')
         return redirect(url_for('gestionar_materias_jefe'))
-    
-    # Pre-llenar el formulario
-    form.nombre.data = materia.nombre
-    form.codigo.data = materia.codigo
-    form.descripcion.data = materia.descripcion
-    form.cuatrimestre.data = materia.cuatrimestre
-    form.creditos.data = materia.creditos
-    form.horas_teoricas.data = materia.horas_teoricas
-    form.horas_practicas.data = materia.horas_practicas
     
     return render_template('jefe/editar_materia.html', form=form, materia=materia)
 
@@ -2000,8 +2150,7 @@ def nueva_materia():
                 cuatrimestre=form.cuatrimestre.data,
                 carrera_id=int(form.carrera.data),
                 creditos=form.creditos.data,
-                horas_teoricas=form.horas_teoricas.data,
-                horas_practicas=form.horas_practicas.data,
+                horas_semanales=form.horas_semanales.data,
                 descripcion=form.descripcion.data,
                 creado_por=current_user.id
             )
@@ -2032,11 +2181,20 @@ def editar_materia(id):
         flash('Esta materia no está disponible.', 'error')
         return redirect(url_for('gestionar_materias'))
     
-    form = MateriaForm(obj=materia)
-    form.carrera.data = str(materia.carrera_id)
+    form = MateriaForm()
     
     # Agregar ID de la materia al formulario para validaciones
     form._materia_id = materia.id
+    
+    # Pre-llenar el formulario solo en GET
+    if request.method == 'GET':
+        form.nombre.data = materia.nombre
+        form.codigo.data = materia.codigo
+        form.cuatrimestre.data = materia.cuatrimestre
+        form.creditos.data = materia.creditos
+        form.horas_semanales.data = materia.horas_semanales
+        form.descripcion.data = materia.descripcion
+        form.carrera.data = str(materia.carrera_id)
     
     if form.validate_on_submit():
         try:
@@ -2045,8 +2203,7 @@ def editar_materia(id):
             materia.cuatrimestre = form.cuatrimestre.data
             materia.carrera_id = int(form.carrera.data)
             materia.creditos = form.creditos.data
-            materia.horas_teoricas = form.horas_teoricas.data
-            materia.horas_practicas = form.horas_practicas.data
+            materia.horas_semanales = form.horas_semanales.data
             materia.descripcion = form.descripcion.data
             
             db.session.commit()
@@ -2098,12 +2255,18 @@ def importar_materias():
         try:
             archivo = form.archivo.data
             carrera_defecto_id = int(form.carrera_defecto.data) if form.carrera_defecto.data else None
+            restar_horas = form.restar_horas.data if form.restar_horas.data else 0
             
-            resultado = procesar_archivo_materias(archivo, carrera_defecto_id)
+            resultado = procesar_archivo_materias(archivo, carrera_defecto_id, restar_horas)
             
             if resultado['exito']:
-                flash(f"Importación exitosa: {resultado['procesados']} materias procesadas, "
-                     f"{resultado['creados']} nuevas, {resultado['actualizados']} actualizadas.", 'success')
+                mensaje = f"Importación exitosa: {resultado['procesados']} materias procesadas, " \
+                         f"{resultado['creados']} nuevas, {resultado['actualizados']} actualizadas."
+                
+                if restar_horas > 0:
+                    mensaje += f" Se restaron {restar_horas} hora(s) a cada materia."
+                
+                flash(mensaje, 'success')
                 
                 if resultado['errores']:
                     flash(f"Se encontraron {len(resultado['errores'])} errores durante la importación.", 'warning')
@@ -2187,7 +2350,7 @@ def descargar_plantilla_csv_materias():
     
     try:
         # Crear contenido CSV solo con encabezados (sin ejemplos)
-        contenido_csv = """nombre,codigo,cuatrimestre,carrera_codigo,creditos,horas_teoricas,horas_practicas,descripcion
+        contenido_csv = """nombre,codigo,cuatrimestre,carrera_codigo,creditos,horas_semanales,descripcion
 """
         
         # Crear respuesta con archivo CSV
@@ -2613,6 +2776,164 @@ def cambiar_password_profesor(id):
                          form=form,
                          profesor=profesor,
                          titulo=f"Cambiar Contraseña - {profesor.get_nombre_completo()}")
+
+# ==========================================
+# GESTIÓN DE DISPONIBILIDAD DE PROFESORES (ADMIN)
+# ==========================================
+
+@app.route('/admin/profesores/disponibilidad')
+@login_required
+def admin_disponibilidad_profesores():
+    """Módulo de disponibilidad horaria de profesores para administradores"""
+    if not current_user.is_admin():
+        flash('No tienes permisos para acceder a esta página.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Obtener filtros opcionales
+    carrera_id = request.args.get('carrera', type=int)
+    rol_filtro = request.args.get('rol', type=str)
+    
+    # Construir query base
+    query = User.query.filter(
+        User.rol.in_(['profesor_completo', 'profesor_asignatura']),
+        User.activo == True
+    )
+    
+    # Aplicar filtros
+    if carrera_id:
+        query = query.filter(User.carreras.any(id=carrera_id))
+    if rol_filtro:
+        query = query.filter(User.rol == rol_filtro)
+    
+    profesores = query.order_by(User.apellido, User.nombre).all()
+    
+    # Calcular estadísticas de disponibilidad
+    total_profesores = len(profesores)
+    profesores_con_disponibilidad = 0
+    
+    for profesor in profesores:
+        disponibilidades = DisponibilidadProfesor.query.filter_by(
+            profesor_id=profesor.id,
+            activo=True
+        ).count()
+        if disponibilidades > 0:
+            profesores_con_disponibilidad += 1
+    
+    # Obtener todas las carreras para el filtro
+    carreras = Carrera.query.filter_by(activa=True).order_by(Carrera.nombre).all()
+    
+    return render_template('admin/admin_disponibilidad_profesores.html',
+                         profesores=profesores,
+                         carreras=carreras,
+                         carrera_id=carrera_id,
+                         rol_filtro=rol_filtro,
+                         total_profesores=total_profesores,
+                         profesores_con_disponibilidad=profesores_con_disponibilidad)
+
+@app.route('/admin/profesor/<int:id>/disponibilidad/editar', methods=['GET', 'POST'])
+@login_required
+def admin_editar_disponibilidad_profesor(id):
+    """Editar disponibilidad horaria de un profesor (administrador)"""
+    if not current_user.is_admin():
+        flash('No tienes permisos para acceder a esta página.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    profesor = User.query.get_or_404(id)
+    
+    # Verificar que sea un profesor
+    if profesor.rol not in ['profesor_completo', 'profesor_asignatura']:
+        flash('El usuario seleccionado no es un profesor.', 'error')
+        return redirect(url_for('admin_disponibilidad_profesores'))
+    
+    # Obtener horarios del sistema
+    horarios = Horario.query.filter_by(activo=True).order_by(Horario.turno, Horario.orden).all()
+    
+    if request.method == 'POST':
+        try:
+            # Procesar disponibilidad
+            dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+            
+            # Desactivar disponibilidades anteriores
+            DisponibilidadProfesor.query.filter_by(
+                profesor_id=profesor.id,
+                activo=True
+            ).update({'activo': False})
+            
+            # Crear nuevas disponibilidades basadas en los checkboxes marcados
+            for horario in horarios:
+                for dia in dias:
+                    field_name = f"disp_{horario.id}_{dia}"
+                    if request.form.get(field_name):
+                        nueva_disponibilidad = DisponibilidadProfesor(
+                            profesor_id=profesor.id,
+                            horario_id=horario.id,
+                            dia_semana=dia,
+                            disponible=True,
+                            creado_por=current_user.id
+                        )
+                        db.session.add(nueva_disponibilidad)
+            
+            db.session.commit()
+            flash(f'Disponibilidad de {profesor.get_nombre_completo()} actualizada exitosamente.', 'success')
+            return redirect(url_for('admin_disponibilidad_profesores'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar disponibilidad: {str(e)}', 'error')
+    
+    # Cargar disponibilidades actuales
+    disponibilidad_dict = {}
+    disponibilidades_actuales = DisponibilidadProfesor.query.filter_by(
+        profesor_id=profesor.id,
+        activo=True
+    ).all()
+    
+    for disp in disponibilidades_actuales:
+        if disp.disponible:
+            disponibilidad_dict[(disp.horario_id, disp.dia_semana)] = True
+    
+    return render_template('admin/admin_editar_disponibilidad_profesor.html',
+                         profesor=profesor,
+                         horarios=horarios,
+                         disponibilidad_dict=disponibilidad_dict)
+
+@app.route('/admin/profesor/<int:id>/disponibilidad/ver')
+@login_required
+def admin_ver_disponibilidad_profesor(id):
+    """Ver disponibilidad horaria de un profesor (administrador)"""
+    if not current_user.is_admin():
+        flash('No tienes permisos para acceder a esta página.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    profesor = User.query.get_or_404(id)
+    
+    # Verificar que sea un profesor
+    if profesor.rol not in ['profesor_completo', 'profesor_asignatura']:
+        flash('El usuario seleccionado no es un profesor.', 'error')
+        return redirect(url_for('admin_disponibilidad_profesores'))
+    
+    # Obtener horarios del sistema
+    horarios = Horario.query.filter_by(activo=True).order_by(Horario.turno, Horario.orden).all()
+    
+    # Cargar disponibilidades actuales
+    disponibilidad_dict = {}
+    disponibilidades_actuales = DisponibilidadProfesor.query.filter_by(
+        profesor_id=profesor.id,
+        activo=True
+    ).all()
+    
+    for disp in disponibilidades_actuales:
+        if disp.disponible:
+            disponibilidad_dict[(disp.horario_id, disp.dia_semana)] = True
+    
+    # Calcular total de horas disponibles
+    total_horas_disponibles = len(disponibilidades_actuales)
+    
+    return render_template('admin/admin_ver_disponibilidad_profesor.html',
+                         profesor=profesor,
+                         horarios=horarios,
+                         disponibilidad_dict=disponibilidad_dict,
+                         total_horas_disponibles=total_horas_disponibles)
 
 # ==========================================
 # ASIGNACIÓN MASIVA DE MATERIAS
@@ -3287,8 +3608,14 @@ def agregar_usuario():
 
     from forms import AgregarUsuarioForm
     form = AgregarUsuarioForm()
+    
+    # Obtener horarios para mostrar en la tabla de disponibilidad
+    horarios = Horario.query.filter_by(activo=True).order_by(Horario.turno, Horario.orden).all()
 
     if form.validate_on_submit():
+        # Obtener el rol final (considerando tipo de profesor)
+        rol_final = form.get_final_rol()
+        
         # Crear nuevo usuario
         nuevo_usuario = User(
             username=form.username.data,
@@ -3296,7 +3623,7 @@ def agregar_usuario():
             password=form.password.data,
             nombre=form.nombre.data,
             apellido=form.apellido.data,
-            rol=form.rol.data,
+            rol=rol_final,
             telefono=form.telefono.data
         )
         
@@ -3304,10 +3631,10 @@ def agregar_usuario():
         nuevo_usuario.activo = form.activo.data
         
         # Asignar carrera según el rol
-        if form.rol.data == 'jefe_carrera':
+        if rol_final == 'jefe_carrera':
             # Para jefe de carrera: usar carrera_id (relación one-to-one)
             nuevo_usuario.carrera_id = int(form.carrera.data) if form.carrera.data else None
-        elif form.rol.data in ['profesor_completo', 'profesor_asignatura']:
+        elif rol_final in ['profesor_completo', 'profesor_asignatura']:
             # Para profesores: usar carreras (relación many-to-many)
             if form.carreras.data:
                 from models import Carrera
@@ -3316,6 +3643,22 @@ def agregar_usuario():
 
         try:
             db.session.add(nuevo_usuario)
+            db.session.flush()  # Para obtener el ID del nuevo usuario
+            
+            # Procesar disponibilidad horaria para profesores
+            if rol_final in ['profesor_completo', 'profesor_asignatura']:
+                disponibilidades_data = form.get_disponibilidades_data()
+                
+                for disp_data in disponibilidades_data:
+                    nueva_disponibilidad = DisponibilidadProfesor(
+                        profesor_id=nuevo_usuario.id,
+                        horario_id=disp_data['horario_id'],
+                        dia_semana=disp_data['dia_semana'],
+                        disponible=disp_data['disponible'],
+                        creado_por=current_user.id
+                    )
+                    db.session.add(nueva_disponibilidad)
+            
             db.session.commit()
             flash(f'Usuario {nuevo_usuario.get_nombre_completo()} creado exitosamente.', 'success')
             return redirect(url_for('gestionar_usuarios'))
@@ -3323,7 +3666,7 @@ def agregar_usuario():
             db.session.rollback()
             flash(f'Error al crear usuario: {str(e)}', 'error')
 
-    return render_template('admin/usuario_form.html', form=form, titulo="Agregar Usuario", usuario=None)
+    return render_template('admin/usuario_form.html', form=form, titulo="Agregar Usuario", usuario=None, horarios=horarios, disponibilidad_dict={})
 
 @app.route('/admin/usuario/<int:id>/editar', methods=['GET', 'POST'])
 @login_required
@@ -3336,6 +3679,9 @@ def editar_usuario(id):
     usuario = User.query.get_or_404(id)
     from forms import EditarUsuarioForm
     form = EditarUsuarioForm(user=usuario)
+    
+    # Obtener horarios para mostrar en la tabla de disponibilidad
+    horarios = Horario.query.filter_by(activo=True).order_by(Horario.turno, Horario.orden).all()
 
     if form.validate_on_submit():
         # Verificar cambios en el rol y carrera
@@ -3374,6 +3720,26 @@ def editar_usuario(id):
                 usuario.carreras = []
             # Limpiar carrera_id si existía
             usuario.carrera_id = None
+            
+            # Procesar disponibilidad horaria para profesores
+            disponibilidades_data = form.get_disponibilidades_data()
+            
+            # Desactivar disponibilidades anteriores (mantener historial)
+            DisponibilidadProfesor.query.filter_by(
+                profesor_id=usuario.id,
+                activo=True
+            ).update({'activo': False})
+            
+            # Crear nuevas disponibilidades
+            for disp_data in disponibilidades_data:
+                nueva_disponibilidad = DisponibilidadProfesor(
+                    profesor_id=usuario.id,
+                    horario_id=disp_data['horario_id'],
+                    dia_semana=disp_data['dia_semana'],
+                    disponible=disp_data['disponible'],
+                    creado_por=current_user.id
+                )
+                db.session.add(nueva_disponibilidad)
         else:
             # Para admin u otros roles: limpiar ambas relaciones
             usuario.carrera_id = None
@@ -3396,7 +3762,7 @@ def editar_usuario(id):
             if existing_jefe:
                 flash(f'Error: Ya existe un jefe de carrera activo para esta carrera ({existing_jefe.get_nombre_completo()}).', 'error')
                 db.session.rollback()
-                return render_template('admin/usuario_form.html', form=form, titulo="Editar Usuario", usuario=usuario)
+                return render_template('admin/usuario_form.html', form=form, titulo="Editar Usuario", usuario=usuario, horarios=horarios, disponibilidad_dict={})
 
         try:
             db.session.commit()
@@ -3424,8 +3790,20 @@ def editar_usuario(id):
         else:
             form.rol.data = usuario.rol
             form.carrera.data = str(usuario.carrera_id) if usuario.carrera_id else ''
+    
+    # Cargar disponibilidades actuales del profesor
+    disponibilidad_dict = {}
+    if usuario.rol in ['profesor_completo', 'profesor_asignatura']:
+        disponibilidades_actuales = DisponibilidadProfesor.query.filter_by(
+            profesor_id=usuario.id,
+            activo=True
+        ).all()
+        
+        for disp in disponibilidades_actuales:
+            if disp.disponible:
+                disponibilidad_dict[(disp.horario_id, disp.dia_semana)] = True
 
-    return render_template('admin/usuario_form.html', form=form, titulo="Editar Usuario", usuario=usuario)
+    return render_template('admin/usuario_form.html', form=form, titulo="Editar Usuario", usuario=usuario, horarios=horarios, disponibilidad_dict=disponibilidad_dict)
 
 @app.route('/admin/usuario/<int:id>/eliminar', methods=['GET', 'POST'])
 @login_required
@@ -5101,7 +5479,6 @@ def exportar_jefe_excel_profesor(profesor_nombre):
     # por ejemplo, verificar que el jefe de carrera solo pueda
     # exportar horarios de profesores de su carrera.
     return _generar_excel_horario_profesor(profesor_nombre)
-    
 
 with app.app_context():
     init_db()

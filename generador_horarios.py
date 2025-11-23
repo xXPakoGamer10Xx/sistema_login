@@ -179,7 +179,7 @@ class GeneradorHorariosOR:
         if materias_con_horas:
             print(f"   ✓ {len(materias_con_horas)} materias con horas configuradas:")
             for materia, horas in materias_con_horas:
-                print(f"      - {materia.codigo}: {materia.horas_teoricas}h teóricas + {materia.horas_practicas}h prácticas = {horas}h/semana")
+                print(f"      - {materia.codigo}: {materia.horas_semanales}h semanales")
         
         print(f"   📊 Total horas semanales requeridas: {total_horas_semanales} horas")
         
@@ -188,7 +188,14 @@ class GeneradorHorariosOR:
         print(f"   📅 Bloques horarios disponibles: {bloques_disponibles} ({len(self.horarios)} horarios × {len(self.dias_semana)} días)")
         
         if total_horas_semanales > bloques_disponibles:
+            deficit = total_horas_semanales - bloques_disponibles
             print(f"   ⚠️  ADVERTENCIA: Se requieren {total_horas_semanales} horas pero solo hay {bloques_disponibles} bloques disponibles")
+            print(f"   ❌ DÉFICIT: Faltan {deficit} bloques horarios")
+            print(f"   💡 SOLUCIONES POSIBLES:")
+            print(f"      1. Agregar el día SÁBADO (daría {len(self.horarios) * (len(self.dias_semana) + 1)} bloques)")
+            print(f"      2. Agregar {math.ceil(deficit / len(self.dias_semana))} horario(s) más al turno {self.turno}")
+            print(f"      3. Reducir {deficit} hora(s) del total de materias")
+            raise ValueError(f"❌ IMPOSIBLE GENERAR HORARIO: Se requieren {total_horas_semanales} horas pero solo hay {bloques_disponibles} bloques disponibles. Faltan {deficit} bloques.")
 
     def cargar_disponibilidades(self):
         """Cargar las disponibilidades de todos los profesores"""
@@ -296,7 +303,7 @@ class GeneradorHorariosOR:
     def restriccion_horas_materia(self):
         """
         Cada materia debe tener exactamente las horas requeridas por semana
-        Usa horas_teoricas + horas_practicas configuradas en cada materia
+        Usa horas_semanales configuradas en cada materia
         """
         print("📚 Aplicando restricción de horas semanales por materia...")
         
@@ -314,7 +321,7 @@ class GeneradorHorariosOR:
 
             if asignaciones_materia:
                 self.model.Add(sum(asignaciones_materia) == horas_requeridas)
-                print(f"   ✓ {materia.codigo} ({materia.nombre}): {materia.horas_teoricas}h teóricas + {materia.horas_practicas}h prácticas = {horas_requeridas}h/semana")
+                print(f"   ✓ {materia.codigo} ({materia.nombre}): {horas_requeridas}h/semana")
 
     def restriccion_no_conflicto_profesor(self):
         """Un profesor no puede tener dos clases al mismo tiempo"""
@@ -631,9 +638,7 @@ class GeneradorHorariosOR:
         Usa las horas teóricas + horas prácticas configuradas en la materia
         """
         # Obtener horas totales (teóricas + prácticas)
-        horas_teoricas = materia.horas_teoricas if materia.horas_teoricas else 0
-        horas_practicas = materia.horas_practicas if materia.horas_practicas else 0
-        horas_totales = horas_teoricas + horas_practicas
+        horas_totales = materia.horas_semanales if materia.horas_semanales else 0
         
         # Validación: mínimo 1 hora, máximo razonable 15 horas
         if horas_totales < 1:
@@ -649,10 +654,10 @@ class GeneradorHorariosOR:
     def verificar_disponibilidad_profesor(self, profesor_id, horario_id, dia_semana):
         """Verificar si un profesor está disponible en ese horario y día"""
         if profesor_id not in self.disponibilidades:
-            return True  # Si no hay registro de disponibilidad, asumir disponible
+            return False  # Si no hay registro de disponibilidad, asumir NO disponible
 
         disponibilidad_dia = self.disponibilidades[profesor_id].get(dia_semana, {})
-        return disponibilidad_dia.get(horario_id, True)  # Por defecto disponible
+        return disponibilidad_dia.get(horario_id, False)  # Por defecto NO disponible
 
     def generar_horarios(self):
         """Generar horarios académicos usando OR-Tools"""
@@ -737,8 +742,7 @@ class GeneradorHorariosOR:
                 'nombre': materia.nombre,
                 'horas_requeridas': horas_requeridas,
                 'horas_asignadas': horas_asignadas,
-                'horas_teoricas': materia.horas_teoricas,
-                'horas_practicas': materia.horas_practicas,
+                'horas_semanales': materia.horas_semanales,
                 'completado': horas_asignadas == horas_requeridas
             }
 
@@ -1106,10 +1110,11 @@ class GeneradorHorariosSinOR:
     def verificar_disponibilidad_profesor(self, profesor_id, horario_id, dia_semana):
         """Verificar disponibilidad de un profesor"""
         if profesor_id not in self.disponibilidades:
-            return True
+            return False  # Si no hay registro de disponibilidad, asumir NO disponible
         
         disponibilidad_dia = self.disponibilidades[profesor_id].get(dia_semana, {})
-        return disponibilidad_dia.get(horario_id, True)
+        return disponibilidad_dia.get(horario_id, False)  # Por defecto NO disponible
+
     
     def calcular_horas_semanales_materia(self, materia):
         """Calcular horas semanales necesarias para una materia"""
@@ -1240,6 +1245,19 @@ def generar_horarios_automaticos(grupo_id=None, dias_semana=None,
             )
             return generador.generar_horarios()
 
+    except ValueError as e:
+        # Error de validación (como falta de bloques horarios)
+        error_msg = str(e)
+        print(f"\n❌ ERROR DE VALIDACIÓN: {error_msg}")
+        
+        return {
+            'exito': False,
+            'mensaje': error_msg,
+            'estadisticas': None,
+            'horarios_generados': [],
+            'algoritmo': None
+        }
+    
     except Exception as e:
         import traceback
         error_detalle = traceback.format_exc()

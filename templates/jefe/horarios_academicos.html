@@ -21,48 +21,46 @@
                     {% if horarios_academicos %}
                         <div class="table-responsive">
                             <table class="table table-bordered table-striped">
-                                <thead>
+                                <thead class="table-dark">
                                     <tr>
-                                        <th>Profesor</th>
-                                        <th>Materia</th>
-                                        <th>Día</th>
-                                        <th>Horario</th>
-                                        <th>Aula</th>
-                                        <th>Ciclo Escolar</th>
-                                        <th>Acciones</th>
+                                        <th style="color: white;">Profesor</th>
+                                        <th style="color: white;">Materia</th>
+                                        <th style="color: white;">Día</th>
+                                        <th style="color: white;">Horario</th>
+                                        <th style="color: white;">Ciclo Escolar</th>
+                                        <th style="color: white;">Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody style="background-color: white;">
                                     {% for horario in horarios_academicos %}
                                     <tr>
-                                        <td>{{ horario.profesor.get_nombre_completo() }}</td>
-                                        <td>{{ horario.materia.nombre }}</td>
+                                        <td style="color: black;">{{ horario.profesor.get_nombre_completo() }}</td>
+                                        <td style="color: black;">{{ horario.materia.nombre }}</td>
                                         <td>
                                             {% if horario.dia_semana == 'lunes' %}
-                                                <span class="badge badge-primary">Lunes</span>
+                                                <span class="badge badge-primary" style="color: black; font-weight: bold;">Lunes</span>
                                             {% elif horario.dia_semana == 'martes' %}
-                                                <span class="badge badge-success">Martes</span>
+                                                <span class="badge badge-success" style="color: black; font-weight: bold;">Martes</span>
                                             {% elif horario.dia_semana == 'miercoles' %}
-                                                <span class="badge badge-info">Miércoles</span>
+                                                <span class="badge badge-info" style="color: black; font-weight: bold;">Miércoles</span>
                                             {% elif horario.dia_semana == 'jueves' %}
-                                                <span class="badge badge-warning">Jueves</span>
+                                                <span class="badge badge-warning" style="color: black; font-weight: bold;">Jueves</span>
                                             {% elif horario.dia_semana == 'viernes' %}
-                                                <span class="badge badge-danger">Viernes</span>
+                                                <span class="badge badge-danger" style="color: black; font-weight: bold;">Viernes</span>
                                             {% elif horario.dia_semana == 'sabado' %}
-                                                <span class="badge badge-secondary">Sábado</span>
+                                                <span class="badge badge-secondary" style="color: black; font-weight: bold;">Sábado</span>
                                             {% endif %}
                                         </td>
-                                        <td>
+                                        <td style="color: black;">
                                             {{ horario.horario.nombre }}<br>
                                             <small class="text-muted">
                                                 {{ horario.horario.get_hora_inicio_str() }} - {{ horario.horario.get_hora_fin_str() }}
                                             </small>
                                         </td>
-                                        <td>{{ horario.aula or 'No asignada' }}</td>
-                                        <td>
-                                            <span class="badge badge-info">{{ horario.get_periodo_academico_display() }}</span>
+                                        <td style="color: black;">
+                                            <span class="badge badge-info" style="color: black; font-weight: bold;">{{ horario.get_periodo_academico_display() }}</span>
                                             <br>
-                                            <small class="text-muted">{{ horario.get_ciclo_escolar()['nombre'] }}</small>
+                                            <small style="color: black; font-weight: bold;">{{ horario.get_ciclo_escolar()['nombre'] }}</small>
                                         </td>
                                         <td>
                                             <a href="{{ url_for('editar_horario_academico_jefe', id=horario.id) }}" 

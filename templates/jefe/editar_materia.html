@@ -84,30 +84,23 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    {{ form.horas_teoricas.label(class="form-label") }}
-                                    {{ form.horas_teoricas(class="form-control" + (" is-invalid" if form.horas_teoricas.errors else "")) }}
-                                    {% if form.horas_teoricas.errors %}
-                                        <div class="invalid-feedback">
-                                            {% for error in form.horas_teoricas.errors %}
+                                    {{ form.horas_semanales.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.horas_semanales(class="form-control" + (" is-invalid" if form.horas_semanales.errors else "")) }}
+                                        <span class="input-group-text">h/semana</span>
+                                    </div>
+                                    {% if form.horas_semanales.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.horas_semanales.errors %}
                                                 <span>{{ error }}</span>
                                             {% endfor %}
                                         </div>
                                     {% endif %}
+                                    <small class="text-muted">Total de horas que se impartirán por semana</small>
                                 </div>
                             </div>
                             
                             <div class="col-md-6">
-                                <div class="form-group">
-                                    {{ form.horas_practicas.label(class="form-label") }}
-                                    {{ form.horas_practicas(class="form-control" + (" is-invalid" if form.horas_practicas.errors else "")) }}
-                                    {% if form.horas_practicas.errors %}
-                                        <div class="invalid-feedback">
-                                            {% for error in form.horas_practicas.errors %}
-                                                <span>{{ error }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
                             </div>
                         </div>
                         

@@ -1,0 +1,5 @@
+nombre,codigo,cuatrimestre,carrera_codigo,creditos,horas_semanales,descripcion
+Introducción a la Programación,ISI-101,1,ING-SIS,4,5,Fundamentos de programación y lógica
+Matemáticas Discretas,MAT-101,1,ING-SIS,3,4,Lógica y matemáticas para computación
+Estructura de Datos,ISI-201,2,ING-SIS,4,6,Estructuras de datos y algoritmos
+Base de Datos,ISI-202,2,ING-SIS,4,5,Diseño y administración de bases de datos

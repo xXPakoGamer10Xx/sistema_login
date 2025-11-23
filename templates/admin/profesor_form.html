@@ -99,14 +99,14 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-phone"></i>
                                 </span>
-                                {{ form.telefono(class="form-control", placeholder="Ej: 5512345678 (10 dígitos)", maxlength="10", pattern="[0-9]{10}") }}
+                                {{ form.telefono(class="form-control", placeholder="Ej: 5512345678 (10 dígitos)", maxlength="13", id="telefono_input") }}
                             </div>
                             {% if form.telefono.errors %}
                                 {% for error in form.telefono.errors %}
                                     <div class="text-danger small">{{ error }}</div>
                                 {% endfor %}
                             {% endif %}
-                            <small class="text-muted">Ingresa 10 dígitos sin espacios ni guiones</small>
+                            <small class="text-muted">Los guiones y espacios se eliminarán automáticamente</small>
                         </div>
 
                         <!-- Información académica -->
@@ -313,15 +313,15 @@
 <!-- Script para mejorar UX -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-formatear teléfono
-    const telefonoInput = document.querySelector('input[name="telefono"]');
-    if (telefonoInput) {
-        telefonoInput.addEventListener('input', function(e) {
-            let value = e.target.value.replace(/\D/g, '');
-            if (value.length >= 10) {
-                value = value.replace(/(\d{2})(\d{4})(\d{4})/, '$1 $2-$3');
-            }
-            e.target.value = value;
+    // Limpiar teléfono de caracteres no numéricos antes de enviar
+    const telefonoInput = document.querySelector('#telefono_input');
+    const form = telefonoInput ? telefonoInput.closest('form') : null;
+    
+    if (form && telefonoInput) {
+        form.addEventListener('submit', function(e) {
+            // Eliminar todos los caracteres que no sean dígitos
+            const cleanedValue = telefonoInput.value.replace(/\D/g, '');
+            telefonoInput.value = cleanedValue;
         });
     }
 
