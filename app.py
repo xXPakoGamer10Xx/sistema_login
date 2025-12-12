@@ -4273,6 +4273,65 @@ def guardar_configuracion_database():
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error al guardar configuración: {str(e)}'}), 500
 
+# API para configuración de horarios
+@app.route('/admin/configuracion/horarios', methods=['POST'])
+@login_required
+def guardar_configuracion_horarios():
+    """Guardar configuración de horarios"""
+    if not current_user.is_admin():
+        return jsonify({'success': False, 'message': 'No tienes permisos para esta acción'}), 403
+
+    try:
+        data = request.get_json()
+        from models import ConfiguracionSistema
+
+        # Guardar configuración de horarios
+        ConfiguracionSistema.set_config(
+            'horas_max_dia', data.get('horas_max_dia', '8'),
+            tipo='int', descripcion='Máximo de horas de clase por día', categoria='horarios'
+        )
+        ConfiguracionSistema.set_config(
+            'dias_clase', data.get('dias_clase', '5'),
+            tipo='int', descripcion='Número de días con clases por semana', categoria='horarios'
+        )
+        ConfiguracionSistema.set_config(
+            'duracion_clase', data.get('duracion_clase', '50'),
+            tipo='int', descripcion='Duración de cada clase en minutos', categoria='horarios'
+        )
+        ConfiguracionSistema.set_config(
+            'tiempo_entre_clases', data.get('tiempo_entre_clases', '10'),
+            tipo='int', descripcion='Tiempo de descanso entre clases en minutos', categoria='horarios'
+        )
+
+        return jsonify({'success': True, 'message': 'Configuración de horarios guardada exitosamente'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error al guardar configuración: {str(e)}'}), 500
+
+# API para obtener configuración de horarios
+@app.route('/admin/configuracion/horarios', methods=['GET'])
+@login_required
+def obtener_configuracion_horarios():
+    """Obtener configuración de horarios"""
+    if not current_user.is_admin():
+        return jsonify({'success': False, 'message': 'No tienes permisos para esta acción'}), 403
+
+    try:
+        from models import ConfiguracionSistema
+
+        config = {
+            'horas_max_dia': ConfiguracionSistema.get_config('horas_max_dia', '8'),
+            'dias_clase': ConfiguracionSistema.get_config('dias_clase', '5'),
+            'duracion_clase': ConfiguracionSistema.get_config('duracion_clase', '50'),
+            'tiempo_entre_clases': ConfiguracionSistema.get_config('tiempo_entre_clases', '10')
+        }
+
+        return jsonify({'success': True, 'data': config})
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error al obtener configuración: {str(e)}'}), 500
+
 # API para crear backup
 @app.route('/admin/configuracion/backup', methods=['POST'])
 @login_required

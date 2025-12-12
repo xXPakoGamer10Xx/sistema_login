@@ -512,7 +512,25 @@ function guardarHorarios() {
         tiempo_entre_clases: document.getElementById('tiempo_entre_clases').value
     };
 
-    mostrarMensaje('Configuración de horarios guardada exitosamente', 'success');
+    fetch('/admin/configuracion/horarios', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarMensaje(data.message, 'success');
+        } else {
+            mostrarMensaje(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarMensaje('Error al guardar la configuración de horarios', 'danger');
+    });
 }
 
 function guardarSeguridad() {
@@ -787,12 +805,30 @@ function mostrarMensaje(mensaje, tipo) {
     }, 5000);
 }
 
+// Cargar configuración de horarios
+function cargarConfiguracionHorarios() {
+    fetch('/admin/configuracion/horarios')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('horas_max_dia').value = data.data.horas_max_dia;
+                document.getElementById('dias_clase').value = data.data.dias_clase;
+                document.getElementById('duracion_clase').value = data.data.duracion_clase;
+                document.getElementById('tiempo_entre_clases').value = data.data.tiempo_entre_clases;
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar configuración de horarios:', error);
+        });
+}
+
 // Cargar configuración al iniciar
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Configuración del sistema cargada');
     toggleDatabaseConfig(); // Configurar la interfaz inicial
     loadBackupHistory(); // Cargar historial de backups
     updateConnectionStatus(); // Actualizar estado de conexión
+    cargarConfiguracionHorarios(); // Cargar configuración de horarios
 });
 </script>
 {% endblock %}
