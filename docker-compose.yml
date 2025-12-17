@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: sistema_login
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    volumes:
+      # Persist SQLite database
+      - ./instance:/app/instance
+      # Persist User uploads
+      - ./static/uploads:/app/static/uploads
+      # Persist logs
+      - ./logs:/app/logs
+      # Optional: Mount current directory for development (comment out for production isolation)
+      # - .:/app
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_DEBUG=0
+      # Ensure python doesn't buffer output so we see logs immediately
+      - PYTHONUNBUFFERED=1
