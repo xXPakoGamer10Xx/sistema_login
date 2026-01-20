@@ -173,7 +173,12 @@
             </div>
             <div class="card-body">
                 {% if current_user.is_admin() %}
-                    <div class="row">
+                    <!-- Sección de Administrador -->
+                    <div class="mb-4">
+                        <h6 class="text-muted border-bottom pb-2 mb-3">
+                            <i class="fas fa-shield-alt me-2"></i>Panel de Administrador
+                        </h6>
+                        <div class="row">
                         <div class="col-md-6 mb-3">
                             <div class="card border-primary">
                                 <div class="card-body text-center">
@@ -308,7 +313,18 @@
                             </div>
                         </div>
                     </div>
-                {% elif current_user.is_jefe_carrera() %}
+                    </div>
+                {% endif %}
+                
+                {% if current_user.is_jefe_carrera() %}
+                    <!-- Sección de Jefe de Carrera -->
+                    <div class="mb-4">
+                        <h6 class="text-muted border-bottom pb-2 mb-3">
+                            <i class="fas fa-user-tie me-2"></i>Panel de Jefe de Carrera
+                            {% if current_user.carreras %}
+                            <span class="badge bg-success ms-2">{{ current_user.carreras|map(attribute='nombre')|join(', ') }}</span>
+                            {% endif %}
+                        </h6>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <div class="card border-primary">
@@ -397,19 +413,17 @@
                         </div>
                         
                     </div>
-                {% elif current_user.is_profesor() %}
+                {% endif %}
+                
+                {% if current_user.is_profesor() %}
+                    <!-- Sección de Profesor -->
+                    <div class="mb-4">
+                        <h6 class="text-muted border-bottom pb-2 mb-3">
+                            <i class="fas fa-chalkboard-teacher me-2"></i>Panel de Profesor
+                            <span class="badge bg-info ms-2">{{ current_user.get_tipo_profesor_display() }}</span>
+                        </h6>
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <div class="card border-primary">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-chalkboard-teacher fa-2x text-primary mb-2"></i>
-                                    <h6>Panel del Profesor</h6>
-                                    <p class="small text-muted">Acceder al panel completo de profesor</p>
-                                    <a href="{{ url_for('profesor_panel') }}" class="btn btn-primary btn-sm">Panel Profesor</a>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <div class="card border-success">
                                 <div class="card-body text-center">
                                     <i class="fas fa-calendar-alt fa-2x text-success mb-2"></i>
@@ -419,23 +433,23 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <div class="card border-warning">
                                 <div class="card-body text-center">
-                                    <i class="fas fa-star fa-2x text-warning mb-2"></i>
-                                    <h6>Calificaciones</h6>
-                                    <p class="small text-muted">Registrar y consultar calificaciones</p>
-                                    <button class="btn btn-warning btn-sm" disabled>Próximamente</button>
+                                    <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                                    <h6>Mi Disponibilidad</h6>
+                                    <p class="small text-muted">Ver y gestionar mi disponibilidad horaria</p>
+                                    <a href="{{ url_for('profesor_disponibilidad') }}" class="btn btn-warning btn-sm">Ver Disponibilidad</a>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <div class="card border-info">
                                 <div class="card-body text-center">
-                                    <i class="fas fa-users fa-2x text-info mb-2"></i>
-                                    <h6>Mis Estudiantes</h6>
-                                    <p class="small text-muted">Lista de estudiantes por materia</p>
-                                    <button class="btn btn-info btn-sm" disabled>Próximamente</button>
+                                    <i class="fas fa-book fa-2x text-info mb-2"></i>
+                                    <h6>Mis Materias</h6>
+                                    <p class="small text-muted">Ver materias que tengo asignadas</p>
+                                    <a href="{{ url_for('profesor_mis_materias') }}" class="btn btn-info btn-sm">Ver Materias</a>
                                 </div>
                             </div>
                         </div>
@@ -452,6 +466,7 @@
                             <strong>Profesor por Asignatura:</strong> Tu acceso está limitado a las materias que tienes asignadas.
                         </div>
                     {% endif %}
+                    </div>
                 {% endif %}
             </div>
         </div>

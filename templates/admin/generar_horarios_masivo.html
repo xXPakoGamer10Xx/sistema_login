@@ -295,36 +295,277 @@ function actualizarContador() {
     document.getElementById('tiempo-estimado').textContent = tiempo;
 }
 
-// Confirmar antes de enviar
-document.getElementById('form-generar-masivo').addEventListener('submit', function(e) {
-    const seleccionados = document.querySelectorAll('.grupo-checkbox:checked').length;
+// Variable para el intervalo de polling
+let pollingInterval = null;
+
+// Función para mostrar el modal de carga
+function mostrarModalCarga(totalGrupos) {
+    document.getElementById('progresoModal').style.display = 'flex';
+    document.getElementById('progreso-total').textContent = totalGrupos;
+    document.getElementById('progreso-actual').textContent = '0';
+    document.getElementById('progreso-codigo-grupo').textContent = 'Iniciando...';
+    document.getElementById('progreso-horarios').textContent = '0';
+    document.getElementById('progreso-barra').style.width = '5%';
+    document.getElementById('progreso-barra').className = 'progress-bar progress-bar-striped progress-bar-animated bg-success';
+    document.getElementById('modal-resultado').style.display = 'none';
+    document.getElementById('modal-spinner').style.display = 'block';
+}
+
+// Función para hacer polling del progreso
+function iniciarPolling(totalGrupos) {
+    pollingInterval = setInterval(function() {
+        fetch('/api/generacion-progreso')
+            .then(response => response.json())
+            .then(data => {
+                // Actualizar contador
+                const actual = data.grupo_actual || 0;
+                document.getElementById('progreso-actual').textContent = actual;
+                document.getElementById('progreso-codigo-grupo').textContent = data.codigo_grupo || 'Procesando...';
+                document.getElementById('progreso-horarios').textContent = data.horarios_generados || 0;
+                
+                // Actualizar barra de progreso
+                const procesados = data.grupos_procesados || 0;
+                const porcentaje = totalGrupos > 0 ? (procesados / totalGrupos * 100) : 0;
+                document.getElementById('progreso-barra').style.width = Math.max(porcentaje, 5) + '%';
+                
+                // Si completado, mostrar resultado
+                if (data.completado) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                    mostrarResultadoFinal(data);
+                }
+            })
+            .catch(error => {
+                console.error('Error al obtener progreso:', error);
+            });
+    }, 500);
+}
+
+// Función para mostrar el resultado final
+function mostrarResultadoFinal(data) {
+    document.getElementById('modal-spinner').style.display = 'none';
+    document.getElementById('progreso-barra').classList.remove('progress-bar-animated');
+    
+    // Cambiar color de la barra
+    if (data.exito) {
+        document.getElementById('progreso-barra').className = 'progress-bar bg-success';
+    } else {
+        document.getElementById('progreso-barra').className = 'progress-bar bg-warning';
+    }
+    document.getElementById('progreso-barra').style.width = '100%';
+    
+    // Mostrar mensaje final
+    document.getElementById('progreso-codigo-grupo').textContent = data.exito ? '✅ Completado' : '⚠️ Parcial';
+    
+    // Mostrar botón de cerrar
+    document.getElementById('modal-resultado').style.display = 'block';
+    document.getElementById('resultado-mensaje').textContent = data.mensaje;
+}
+
+// Función para cerrar modal y recargar
+function cerrarModalYRecargar() {
+    document.getElementById('progresoModal').style.display = 'none';
+    window.location.reload();
+}
+
+// Manejar envío del formulario con AJAX
+document.getElementById('btn-generar').addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    const checkboxes = document.querySelectorAll('.grupo-checkbox:checked');
+    const seleccionados = checkboxes.length;
     
     if (seleccionados === 0) {
-        e.preventDefault();
         alert('❌ Debe seleccionar al menos un grupo');
-        return false;
+        return;
     }
     
     const confirmacion = confirm(
         `🚀 ¿Generar horarios para ${seleccionados} grupo(s)?\n\n` +
-        `✓ Todos los grupos se generarán simultáneamente\n` +
-        `✓ Los horarios se optimizarán de forma equilibrada\n` +
-        `⚠️  Los horarios anteriores se desactivarán\n\n` +
+        `✓ Verás el progreso en tiempo real\n` +
+        `✓ Cada grupo se procesa uno por uno\n` +
+        `⚠️ Los horarios anteriores se desactivarán\n\n` +
         `Este proceso puede tomar varios minutos.`
     );
     
-    if (!confirmacion) {
-        e.preventDefault();
-        return false;
-    }
+    if (!confirmacion) return;
     
-    // Mostrar loading
+    // Recoger IDs de grupos seleccionados
+    const gruposIds = Array.from(checkboxes).map(cb => cb.value);
+    const versionNombre = document.getElementById('version_nombre').value;
+    const diasSemana = document.getElementById('dias_semana').value;
+    
+    // Deshabilitar botón
     const btnGenerar = document.getElementById('btn-generar');
     btnGenerar.disabled = true;
-    btnGenerar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generando... Por favor espere';
+    btnGenerar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generando...';
+    
+    // Mostrar modal
+    mostrarModalCarga(seleccionados);
+    
+    // Enviar solicitud AJAX
+    fetch('/api/iniciar-generacion-masiva', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            grupos_ids: gruposIds,
+            version_nombre: versionNombre,
+            dias_semana: diasSemana
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+            document.getElementById('progresoModal').style.display = 'none';
+            btnGenerar.disabled = false;
+            btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
+            return;
+        }
+        
+        // Iniciar polling del progreso
+        iniciarPolling(seleccionados);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al iniciar la generación');
+        document.getElementById('progresoModal').style.display = 'none';
+        btnGenerar.disabled = false;
+        btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
+    });
 });
 
 // Inicializar contador
 actualizarContador();
 </script>
+
+<!-- Modal de Progreso -->
+<div id="progresoModal" class="modal-overlay" style="display: none;">
+    <div class="modal-progreso">
+        <div class="modal-header-progreso">
+            <h4>
+                <i class="fas fa-rocket me-2"></i>
+                Generando Horarios Masivos
+            </h4>
+        </div>
+        <div class="modal-body-progreso">
+            <!-- Animación de carga -->
+            <div id="modal-spinner" class="text-center mb-3">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Generando...</span>
+                </div>
+            </div>
+            
+            <!-- Contador principal -->
+            <div class="text-center mb-3">
+                <h2 class="mb-0">
+                    <span id="progreso-actual" class="text-primary">0</span>
+                    <span class="text-muted">de</span>
+                    <span id="progreso-total" class="text-primary">0</span>
+                </h2>
+                <small class="text-muted">grupos procesados</small>
+            </div>
+            
+            <!-- Barra de progreso -->
+            <div class="progress mb-3" style="height: 25px;">
+                <div id="progreso-barra" 
+                     class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                     role="progressbar" 
+                     style="width: 5%">
+                </div>
+            </div>
+            
+            <!-- Grupo actual -->
+            <div class="alert alert-info text-center py-2 mb-3">
+                <i class="fas fa-cog fa-spin me-2"></i>
+                Procesando: <strong id="progreso-codigo-grupo">Iniciando...</strong>
+            </div>
+            
+            <!-- Horarios generados -->
+            <div class="text-center mb-3">
+                <span class="badge bg-success fs-6">
+                    <i class="fas fa-calendar-check me-1"></i>
+                    <span id="progreso-horarios">0</span> horarios generados
+                </span>
+            </div>
+            
+            <!-- Resultado final (oculto inicialmente) -->
+            <div id="modal-resultado" style="display: none;" class="text-center">
+                <p id="resultado-mensaje" class="mb-3"></p>
+                <button onclick="cerrarModalYRecargar()" class="btn btn-primary">
+                    <i class="fas fa-check me-2"></i>Cerrar y Ver Resultados
+                </button>
+            </div>
+            
+            <!-- Mensaje -->
+            <p class="text-center text-muted small mb-0">
+                <i class="fas fa-clock me-1"></i>
+                Por favor espera, no cierres esta página...
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.modal-progreso {
+    background: white;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 450px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header-progreso {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 15px 15px 0 0;
+    text-align: center;
+}
+
+.modal-header-progreso h4 {
+    margin: 0;
+}
+
+.modal-body-progreso {
+    padding: 25px;
+}
+
+.progress {
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    border-radius: 15px;
+    transition: width 0.3s ease;
+}
+</style>
 {% endblock %}

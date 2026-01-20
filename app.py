@@ -28,6 +28,27 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import letter, A4, landscape 
+import threading
+import time
+import json
+
+# Variable global para tracking del progreso de generación masiva
+generacion_progreso = {
+    'activo': False,
+    'total_grupos': 0,
+    'grupos_procesados': 0,
+    'grupo_actual': '',
+    'codigo_grupo': '',
+    'horarios_generados': 0,
+    'mensaje': '',
+    'completado': False,
+    'exito': False,
+    'iniciado': False
+}
+
+# Lock para acceso thread-safe
+progreso_lock = threading.Lock()
+
 import re
 
 app = Flask(__name__)
@@ -532,21 +553,22 @@ def editar_profesor_jefe(id):
                 activo=True
             ).update({'activo': False})
             
-            # Crear nuevas disponibilidades basadas en el formulario
+            # Crear nuevas disponibilidades basadas en los checkboxes MARCADOS
+            # Solo guardamos los horarios donde el profesor SÍ está disponible
             dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
             for horario in horarios:
                 for dia in dias:
                     field_name = f'disp_{horario.id}_{dia}'
-                    disponible = request.form.get(field_name) == 'True'
-                    
-                    nueva_disponibilidad = DisponibilidadProfesor(
-                        profesor_id=profesor.id,
-                        horario_id=horario.id,
-                        dia_semana=dia,
-                        disponible=disponible,
-                        creado_por=current_user.id
-                    )
-                    db.session.add(nueva_disponibilidad)
+                    # Si el checkbox está marcado (existe en el form), crear disponibilidad
+                    if request.form.get(field_name):
+                        nueva_disponibilidad = DisponibilidadProfesor(
+                            profesor_id=profesor.id,
+                            horario_id=horario.id,
+                            dia_semana=dia,
+                            disponible=True,
+                            creado_por=current_user.id
+                        )
+                        db.session.add(nueva_disponibilidad)
         
         db.session.commit()
         flash('Profesor actualizado exitosamente.', 'success')
@@ -1232,8 +1254,8 @@ def profesor_disponibilidad():
     
     dias_semana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
     
-    # Obtener todos los horarios disponibles del sistema
-    horarios = Horario.query.filter_by(activo=True).order_by(Horario.orden).all()
+    # Obtener todos los horarios disponibles del sistema (matutinos primero, luego vespertinos)
+    horarios = Horario.query.filter_by(activo=True).order_by(Horario.turno, Horario.orden).all()
     
     if request.method == 'POST':
         try:
@@ -3643,14 +3665,33 @@ def generar_horarios_masivo():
         
         # Generar horarios masivos
         print(f"🚀 Iniciando generación masiva para {len(grupos_ids)} grupos...")
+        # Inicializar progreso
+        global generacion_progreso
+        generacion_progreso = {
+            'activo': True,
+            'total_grupos': len(grupos_ids),
+            'grupos_procesados': 0,
+            'grupo_actual': 'Iniciando...',
+            'horarios_generados': 0,
+            'mensaje': 'Iniciando generación...',
+            'completado': False,
+            'exito': False
+        }
         
-        resultado = generar_horarios_masivos(
+        # Generar horarios masivos con callback de progreso
+        resultado = generar_horarios_masivos_con_progreso(
             grupos_ids=grupos_ids,
             periodo_academico=periodo_academico,
             version_nombre=version_nombre,
             creado_por=current_user.id,
             dias_semana=dias_semana
         )
+        
+        # Marcar como completado
+        generacion_progreso['completado'] = True
+        generacion_progreso['exito'] = resultado['exito']
+        generacion_progreso['mensaje'] = resultado['mensaje']
+        generacion_progreso['activo'] = False
         
         if resultado['exito']:
             flash(f"✅ {resultado['mensaje']}", 'success')
@@ -3660,6 +3701,168 @@ def generar_horarios_masivo():
     return render_template('admin/generar_horarios_masivo.html',
                          grupos_organizados=grupos_organizados,
                          resultado=resultado)
+
+def generar_horarios_masivos_con_progreso(grupos_ids, periodo_academico, version_nombre, creado_por, dias_semana):
+    """Wrapper que genera horarios actualizando el progreso global"""
+    global generacion_progreso, progreso_lock
+    from generador_horarios_mejorado import GeneradorHorariosMejorado
+    from models import Grupo, db
+    
+    resultados = {
+        'exito': True,
+        'mensaje': '',
+        'grupos_procesados': 0,
+        'grupos_fallidos': 0,
+        'horarios_generados': 0,
+        'algoritmo': 'Secuencial con Progreso'
+    }
+    
+    # Ordenar grupos por complejidad (los más simples primero)
+    grupos_ordenados = grupos_ids
+    total = len(grupos_ordenados)
+    
+    for i, grupo_id in enumerate(grupos_ordenados, 1):
+        grupo = Grupo.query.get(grupo_id)
+        if not grupo:
+            continue
+        
+        # Actualizar progreso con lock
+        with progreso_lock:
+            generacion_progreso['grupo_actual'] = i  # Solo el número actual
+            generacion_progreso['codigo_grupo'] = grupo.codigo
+            generacion_progreso['mensaje'] = f'Procesando grupo {grupo.codigo}...'
+        
+        try:
+            db.session.expire_all()
+            
+            generador = GeneradorHorariosMejorado(
+                grupos_ids=[grupo_id],
+                periodo_academico=periodo_academico,
+                version_nombre=f"{version_nombre or 'Secuencial'} - {grupo.codigo}",
+                creado_por=creado_por,
+                dias_semana=dias_semana or ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'],
+                tiempo_limite=120
+            )
+            
+            resultado = generador.generar()
+            
+            if resultado['exito']:
+                db.session.commit()
+                resultados['grupos_procesados'] += 1
+                resultados['horarios_generados'] += resultado['horarios_generados']
+                
+                # Actualizar progreso con lock
+                with progreso_lock:
+                    generacion_progreso['grupos_procesados'] = resultados['grupos_procesados']
+                    generacion_progreso['horarios_generados'] = resultados['horarios_generados']
+            else:
+                resultados['grupos_fallidos'] += 1
+                
+        except Exception as e:
+            db.session.rollback()
+            resultados['grupos_fallidos'] += 1
+            print(f"Error en grupo {grupo.codigo}: {e}")
+    
+    # Resumen final
+    if resultados['grupos_procesados'] > 0:
+        if resultados['grupos_fallidos'] == 0:
+            resultados['mensaje'] = f"✅ Generación exitosa: {resultados['grupos_procesados']} grupos, {resultados['horarios_generados']} horarios"
+        else:
+            resultados['exito'] = False
+            resultados['mensaje'] = f"⚠️ Generación parcial: {resultados['grupos_procesados']} exitosos, {resultados['grupos_fallidos']} fallidos"
+    else:
+        resultados['exito'] = False
+        resultados['mensaje'] = "❌ No se pudo generar ningún horario"
+    
+    return resultados
+
+@app.route('/api/generacion-progreso')
+@login_required
+def api_generacion_progreso():
+    """API endpoint para consultar el progreso de generación masiva"""
+    global generacion_progreso
+    with progreso_lock:
+        return jsonify(generacion_progreso.copy())
+
+@app.route('/api/iniciar-generacion-masiva', methods=['POST'])
+@login_required
+def api_iniciar_generacion_masiva():
+    """API endpoint para iniciar generación masiva en segundo plano"""
+    global generacion_progreso, progreso_lock
+    
+    if not current_user.is_admin():
+        return jsonify({'error': 'No tienes permisos'}), 403
+    
+    data = request.get_json()
+    grupos_ids = data.get('grupos_ids', [])
+    version_nombre = data.get('version_nombre', '')
+    dias_config = data.get('dias_semana', 'lunes_viernes')
+    
+    if not grupos_ids:
+        return jsonify({'error': 'Selecciona al menos un grupo'}), 400
+    
+    # Convertir a enteros
+    grupos_ids = [int(gid) for gid in grupos_ids]
+    
+    # IMPORTANTE: Guardar el user_id ANTES de crear el thread
+    # porque current_user no está disponible en threads separados
+    user_id = current_user.id
+    
+    # Configurar días
+    if dias_config == 'lunes_viernes':
+        dias_semana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
+    elif dias_config == 'lunes_sabado':
+        dias_semana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+    else:
+        dias_semana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
+    
+    # Calcular período académico
+    año_actual = datetime.now().year
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    periodo_academico = f"{año_actual}-{año_actual}_{timestamp}"
+    
+    if not version_nombre:
+        version_nombre = f"Generación Masiva {timestamp}"
+    
+    # Inicializar progreso
+    with progreso_lock:
+        generacion_progreso = {
+            'activo': True,
+            'total_grupos': len(grupos_ids),
+            'grupos_procesados': 0,
+            'grupo_actual': 0,
+            'codigo_grupo': 'Iniciando...',
+            'horarios_generados': 0,
+            'mensaje': 'Iniciando generación...',
+            'completado': False,
+            'exito': False
+        }
+    
+    # Función para ejecutar en thread
+    def ejecutar_generacion():
+        global generacion_progreso, progreso_lock
+        with app.app_context():
+            resultado = generar_horarios_masivos_con_progreso(
+                grupos_ids=grupos_ids,
+                periodo_academico=periodo_academico,
+                version_nombre=version_nombre,
+                creado_por=user_id,  # Usar la variable capturada, no current_user
+                dias_semana=dias_semana
+            )
+            
+            # Marcar como completado
+            with progreso_lock:
+                generacion_progreso['completado'] = True
+                generacion_progreso['exito'] = resultado['exito']
+                generacion_progreso['mensaje'] = resultado['mensaje']
+                generacion_progreso['activo'] = False
+    
+    # Iniciar thread
+    thread = threading.Thread(target=ejecutar_generacion)
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({'mensaje': 'Generación iniciada', 'total_grupos': len(grupos_ids)})
 
 @app.route('/admin/horarios-academicos/generar', methods=['GET', 'POST'])
 @login_required

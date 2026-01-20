@@ -837,16 +837,18 @@ class EditarUsuarioForm(FlaskForm):
         ('', 'Seleccione un rol'),
         ('admin', 'Administrador'),
         ('jefe_carrera', 'Jefe de Carrera'),
-        ('profesor', 'Profesor')
+        ('profesor_completo', 'Profesor de Tiempo Completo'),
+        ('profesor_asignatura', 'Profesor por Asignatura')
     ], validators=[DataRequired(message='Debe seleccionar un rol')])
 
     # Ahora roles es un campo de selección múltiple para permitir múltiples roles
+    # Usamos Optional porque en el formulario de jefe de carrera no se incluye este campo
     roles_seleccionados = SelectMultipleField('Roles', choices=[
         ('admin', 'Administrador'),
         ('jefe_carrera', 'Jefe de Carrera'),
         ('profesor_completo', 'Profesor de Tiempo Completo'),
         ('profesor_asignatura', 'Profesor por Asignatura')
-    ], validators=[DataRequired(message='Debe seleccionar al menos un rol')])
+    ], validators=[Optional()])
 
     tipo_profesor = SelectField('Tipo de Profesor', choices=[
         ('', 'Seleccione tipo de profesor'),
