@@ -683,6 +683,7 @@ class AgregarUsuarioForm(FlaskForm):
     ])
 
     telefono = StringField('Teléfono', validators=[
+        Optional(),
         Length(min=10, max=10, message='El teléfono debe tener exactamente 10 dígitos')
     ])
 
@@ -697,26 +698,29 @@ class AgregarUsuarioForm(FlaskForm):
     ])
 
     # Ahora roles es un campo de selección múltiple para permitir múltiples roles
+    # Usamos Optional() porque los checkboxes en el HTML no se procesan igual que un select multiple
     roles_seleccionados = SelectMultipleField('Roles', choices=[
         ('admin', 'Administrador'),
         ('jefe_carrera', 'Jefe de Carrera'),
         ('profesor_completo', 'Profesor de Tiempo Completo'),
         ('profesor_asignatura', 'Profesor por Asignatura')
-    ], validators=[DataRequired(message='Debe seleccionar al menos un rol')])
+    ], validators=[Optional()])
 
     # Campo legacy para compatibilidad (se mantiene oculto o se establece automáticamente)
     rol = SelectField('Rol Principal', choices=[
         ('', 'Seleccione un rol'),
         ('admin', 'Administrador'),
         ('jefe_carrera', 'Jefe de Carrera'),
-        ('profesor', 'Profesor')
+        ('profesor', 'Profesor'),
+        ('profesor_completo', 'Profesor de Tiempo Completo'),
+        ('profesor_asignatura', 'Profesor por Asignatura')
     ], validators=[Optional()])
 
     tipo_profesor = SelectField('Tipo de Profesor', choices=[
         ('', 'Seleccione tipo de profesor'),
         ('profesor_completo', 'Profesor de Tiempo Completo'),
         ('profesor_asignatura', 'Profesor por Asignatura')
-    ])
+    ], validators=[Optional()])
 
     # Ahora tanto jefes de carrera como profesores usan el mismo campo de múltiples carreras
     carreras = SelectMultipleField('Carreras', coerce=int, validators=[Optional()])
@@ -756,15 +760,24 @@ class AgregarUsuarioForm(FlaskForm):
 
     def validate_carreras(self, carreras):
         """Validar carreras si se seleccionó un rol que requiera carrera"""
-        roles = self.roles_seleccionados.data or []
+        roles = self.get_roles_list()
         requiere_carrera = any(r in roles for r in ['jefe_carrera', 'profesor_completo', 'profesor_asignatura'])
         
         if requiere_carrera and (not carreras.data or len(carreras.data) == 0):
             raise ValidationError('Los profesores y jefes de carrera deben seleccionar al menos una carrera.')
+    
+    def validate_roles_seleccionados(self, roles_seleccionados):
+        """Validar que se haya seleccionado al menos un rol"""
+        roles = self.get_roles_list()
+        if not roles:
+            raise ValidationError('Debe seleccionar al menos un rol.')
             
     def get_roles_list(self):
-        """Obtener la lista de roles seleccionados"""
-        return self.roles_seleccionados.data or []
+        """Obtener la lista de roles seleccionados desde request.form (checkboxes)"""
+        from flask import request
+        # Los checkboxes se envían como una lista con el mismo nombre
+        roles = request.form.getlist('roles_seleccionados')
+        return roles if roles else []
     
     def get_primary_rol(self):
         """Obtener el rol principal para el campo legacy"""
@@ -830,6 +843,7 @@ class EditarUsuarioForm(FlaskForm):
     ])
 
     telefono = StringField('Teléfono', validators=[
+        Optional(),
         Length(min=10, max=10, message='El teléfono debe tener exactamente 10 dígitos')
     ])
 
@@ -839,7 +853,7 @@ class EditarUsuarioForm(FlaskForm):
         ('jefe_carrera', 'Jefe de Carrera'),
         ('profesor_completo', 'Profesor de Tiempo Completo'),
         ('profesor_asignatura', 'Profesor por Asignatura')
-    ], validators=[DataRequired(message='Debe seleccionar un rol')])
+    ], validators=[Optional()])
 
     # Ahora roles es un campo de selección múltiple para permitir múltiples roles
     # Usamos Optional porque en el formulario de jefe de carrera no se incluye este campo
@@ -854,7 +868,7 @@ class EditarUsuarioForm(FlaskForm):
         ('', 'Seleccione tipo de profesor'),
         ('profesor_completo', 'Profesor de Tiempo Completo'),
         ('profesor_asignatura', 'Profesor por Asignatura')
-    ])
+    ], validators=[Optional()])
 
     # Ahora tanto jefes de carrera como profesores usan el mismo campo de múltiples carreras
     carreras = SelectMultipleField('Carreras', coerce=int, validators=[Optional()])
@@ -894,15 +908,24 @@ class EditarUsuarioForm(FlaskForm):
 
     def validate_carreras(self, carreras):
         """Validar carreras si se seleccionó un rol que requiera carrera"""
-        roles = self.roles_seleccionados.data or []
+        roles = self.get_roles_list()
         requiere_carrera = any(r in roles for r in ['jefe_carrera', 'profesor_completo', 'profesor_asignatura'])
         
         if requiere_carrera and (not carreras.data or len(carreras.data) == 0):
             raise ValidationError('Los profesores y jefes de carrera deben seleccionar al menos una carrera.')
+    
+    def validate_roles_seleccionados(self, roles_seleccionados):
+        """Validar que se haya seleccionado al menos un rol"""
+        roles = self.get_roles_list()
+        if not roles:
+            raise ValidationError('Debe seleccionar al menos un rol.')
             
     def get_roles_list(self):
-        """Obtener la lista de roles seleccionados"""
-        return self.roles_seleccionados.data or []
+        """Obtener la lista de roles seleccionados desde request.form (checkboxes)"""
+        from flask import request
+        # Los checkboxes se envían como una lista con el mismo nombre
+        roles = request.form.getlist('roles_seleccionados')
+        return roles if roles else []
     
     def get_primary_rol(self):
         """Obtener el rol principal para el campo legacy"""
