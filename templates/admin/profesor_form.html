@@ -132,18 +132,19 @@
                             </div>
 
                             <div class="col-md-6 mb-3">
-                                {{ form.carrera.label(class="form-label") }}
+                                {{ form.carreras.label(class="form-label") }}
                                 <div class="input-group">
                                     <span class="input-group-text">
                                         <i class="fas fa-university"></i>
                                     </span>
-                                    {{ form.carrera(class="form-select") }}
+                                    {{ form.carreras(class="form-select", multiple="multiple", size="4") }}
                                 </div>
-                                {% if form.carrera.errors %}
-                                    {% for error in form.carrera.errors %}
+                                {% if form.carreras.errors %}
+                                    {% for error in form.carreras.errors %}
                                         <div class="text-danger small">{{ error }}</div>
                                     {% endfor %}
                                 {% endif %}
+                                <small class="text-muted">Mantenga presionado Ctrl para seleccionar múltiples carreras</small>
                             </div>
                         </div>
 

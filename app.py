@@ -2788,12 +2788,11 @@ def agregar_profesor():
             db.session.add(nuevo_profesor)
             db.session.flush()  # Obtener el ID del profesor sin hacer commit
             
-            # Asignar carrera (relación many-to-many para profesores)
-            if form.carrera.data:
+            # Asignar carreras (relación many-to-many para profesores - ahora soporta múltiples)
+            if form.carreras.data:
                 from models import Carrera
-                carrera = Carrera.query.get(int(form.carrera.data))
-                if carrera:
-                    nuevo_profesor.carreras = [carrera]
+                carreras_seleccionadas = Carrera.query.filter(Carrera.id.in_(form.carreras.data)).all()
+                nuevo_profesor.carreras = carreras_seleccionadas
             
             # Guardar disponibilidades
             disponibilidades_data = form.get_disponibilidades_data()

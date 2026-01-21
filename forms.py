@@ -595,17 +595,19 @@ class AgregarProfesorForm(FlaskForm):
         ('profesor_asignatura', 'Profesor por Asignatura')
     ])
     
-    carrera = SelectField('Carrera', validators=[DataRequired(message='Debe seleccionar una carrera')])
+    # Ahora soporta múltiples carreras como en EditarUsuarioForm
+    carreras = SelectMultipleField('Carreras', coerce=int, validators=[DataRequired(message='Debe seleccionar al menos una carrera')])
     
     submit = SubmitField('Crear Profesor')
     
     def __init__(self, *args, **kwargs):
         super(AgregarProfesorForm, self).__init__(*args, **kwargs)
-        # Llenar opciones de carreras
+        # Llenar opciones de carreras (ahora múltiples)
         from models import Carrera
-        self.carrera.choices = [
-            (str(c.id), f"{c.codigo} - {c.nombre}") 
-            for c in Carrera.query.filter_by(activa=True).order_by(Carrera.nombre).all()
+        carreras_activas = Carrera.query.filter_by(activa=True).order_by(Carrera.nombre).all()
+        self.carreras.choices = [
+            (c.id, f"{c.codigo} - {c.nombre}") 
+            for c in carreras_activas
         ]
     
     def get_disponibilidades_data(self):
