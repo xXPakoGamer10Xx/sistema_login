@@ -1409,8 +1409,11 @@ def crear_grupo():
     
     form = GrupoForm()
     
-    # Si es jefe de carrera, restringir a su carrera
-    if current_user.is_jefe_carrera():
+    # Si es SOLO jefe de carrera (y NO admin), restringir a su carrera
+    # Los admins pueden modificar cualquier carrera sin restricciones
+    es_solo_jefe = current_user.is_jefe_carrera() and not current_user.is_admin()
+    
+    if es_solo_jefe:
         if not current_user.carreras:
             flash('No tienes carreras asignadas. Contacta al administrador.', 'warning')
             return redirect(url_for('dashboard'))
@@ -1424,8 +1427,8 @@ def crear_grupo():
             flash('Debe seleccionar una carrera.', 'error')
             return render_template('admin/grupo_form.html', form=form, titulo='Crear Grupo')
         
-        # Verificar que jefe de carrera solo cree grupos de su carrera
-        if current_user.is_jefe_carrera() and not current_user.tiene_carrera(form.carrera.data):
+        # Verificar que jefe de carrera (no admin) solo cree grupos de su carrera
+        if es_solo_jefe and not current_user.tiene_carrera(form.carrera.data):
             flash('Solo puedes crear grupos de tu carrera.', 'error')
             return redirect(url_for('gestionar_grupos'))
         
@@ -1458,7 +1461,7 @@ def crear_grupo():
             return redirect(url_for('gestionar_grupos'))
     
     return render_template('admin/grupo_form.html', form=form, titulo='Crear Grupo', 
-                         es_jefe=current_user.is_jefe_carrera())
+                         es_jefe=es_solo_jefe)
 
 @app.route('/admin/grupo/<int:id>/editar', methods=['GET', 'POST'])
 @login_required
@@ -1470,8 +1473,12 @@ def editar_grupo(id):
     
     grupo = Grupo.query.get_or_404(id)
     
-    # Si es jefe de carrera, verificar que el grupo pertenezca a su carrera
-    if current_user.is_jefe_carrera():
+    # Si es SOLO jefe de carrera (y NO admin), restringir a su carrera
+    # Los admins pueden modificar cualquier carrera sin restricciones
+    es_solo_jefe = current_user.is_jefe_carrera() and not current_user.is_admin()
+    
+    # Verificar acceso para jefes de carrera (no aplica a admins)
+    if es_solo_jefe:
         if not current_user.tiene_carrera(grupo.carrera_id):
             flash('No tienes permisos para editar este grupo.', 'error')
             return redirect(url_for('gestionar_grupos'))
@@ -1484,8 +1491,8 @@ def editar_grupo(id):
             flash('Debe seleccionar una carrera.', 'error')
             return render_template('admin/grupo_form.html', form=form, grupo=grupo, titulo=f'Editar Grupo {grupo.codigo}')
         
-        # Verificar que jefe de carrera solo edite grupos de su carrera
-        if current_user.is_jefe_carrera() and not current_user.tiene_carrera(form.carrera.data):
+        # Verificar que jefe de carrera (no admin) solo edite grupos de su carrera
+        if es_solo_jefe and not current_user.tiene_carrera(form.carrera.data):
             flash('Solo puedes editar grupos de tu carrera.', 'error')
             return redirect(url_for('gestionar_grupos'))
         
@@ -1525,7 +1532,8 @@ def editar_grupo(id):
     
     return render_template('admin/grupo_form.html', form=form, grupo=grupo, 
                          titulo=f'Editar Grupo {grupo.codigo}',
-                         es_jefe=current_user.is_jefe_carrera())
+                         es_jefe=es_solo_jefe)
+
 
 @app.route('/admin/grupo/<int:id>/eliminar', methods=['POST'])
 @login_required

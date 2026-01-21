@@ -283,12 +283,12 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <div class="card border-info">
+                            <div class="card border-warning">
                                 <div class="card-body text-center">
-                                    <i class="fas fa-cog fa-2x text-info mb-2"></i>
-                                    <h6>Configuración</h6>
-                                    <p class="small text-muted">Configurar parámetros del sistema</p>
-                                    <a href="{{ url_for('configuracion_sistema') }}" class="btn btn-info btn-sm">Configurar</a>
+                                    <i class="fas fa-calendar-check fa-2x text-warning mb-2"></i>
+                                    <h6>Disponibilidad de Profesores</h6>
+                                    <p class="small text-muted">Gestionar disponibilidad horaria de profesores</p>
+                                    <a href="{{ url_for('admin_disponibilidad_profesores') }}" class="btn btn-warning btn-sm">Gestionar</a>
                                 </div>
                             </div>
                         </div>
@@ -303,12 +303,12 @@
                             </div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <div class="card border-warning">
+                            <div class="card border-info">
                                 <div class="card-body text-center">
-                                    <i class="fas fa-clock-history fa-2x text-warning mb-2"></i>
-                                    <h6>Disponibilidad de Profesores</h6>
-                                    <p class="small text-muted">Gestionar disponibilidad horaria de profesores</p>
-                                    <a href="{{ url_for('admin_disponibilidad_profesores') }}" class="btn btn-warning btn-sm">Gestionar</a>
+                                    <i class="fas fa-cog fa-2x text-info mb-2"></i>
+                                    <h6>Configuración</h6>
+                                    <p class="small text-muted">Configurar parámetros del sistema</p>
+                                    <a href="{{ url_for('configuracion_sistema') }}" class="btn btn-info btn-sm">Configurar</a>
                                 </div>
                             </div>
                         </div>
@@ -403,7 +403,7 @@
 <div class="col-md-6 mb-3">
     <div class="card border-warning">
         <div class="card-body text-center">
-            <i class="fas fa-clock-history fa-2x text-warning mb-2"></i>
+            <i class="fas fa-calendar-check fa-2x text-warning mb-2"></i>
             <h6>Disponibilidad de Profesores</h6>
             <p class="small text-muted">Gestionar disponibilidad horaria de profesores</p>
             <a href="{{ url_for('disponibilidad_profesores_jefe') }}" class="btn btn-warning btn-sm">Gestionar</a>

@@ -22,7 +22,7 @@
                     <a href="{{ url_for('importar_asignaciones_masivas') }}" class="btn btn-light shadow-sm text-primary fw-bold">
                         <i class="fas fa-file-upload me-1"></i> Importar CSV
                     </a>
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-light shadow-sm text-dark fw-bold">
                         <i class="fas fa-arrow-left me-1"></i> Panel
                     </a>
                 </div>
@@ -53,9 +53,9 @@
                     <label class="form-label text-muted small fw-bold">CUATRIMESTRE</label>
                     <select name="cuatrimestre" id="cuatrimestre" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
                         <option value="">Todos los cuatrimestres</option>
-                        {% for i in range(1, 13) %}
+                        {% for i in range(0, 11) %}
                         <option value="{{ i }}" {% if filtro_cuatrimestre == i %}selected{% endif %}>
-                            Cuatrimestre {{ i }}
+                            {% if i == 0 %}Propedéutico (0){% else %}Cuatrimestre {{ i }}{% endif %}
                         </option>
                         {% endfor %}
                     </select>
@@ -171,7 +171,7 @@
             <!-- Matriz -->
             <div class="card-body p-0">
                 <div class="table-responsive bg-white" style="max-height: 70vh; overflow: auto;">
-                    <table class="table table-hover table-bordered mb-0">
+                    <table class="table table-bordered mb-0">
                         <thead class="bg-dark text-white shadow-sm" style="position: sticky; top: 0; z-index: 10;">
                             <tr>
                                 <th class="p-3 border-0 bg-dark" style="position: sticky; left: 0; z-index: 11; min-width: 300px; width: 300px;">
@@ -294,12 +294,27 @@
         background-color: rgba(0,0,0,0.02);
     }
     
-    /* Crosshair effect improved */
-    .table-hover tbody tr:hover td {
-        background-color: rgba(0,0,0,0.03); /* Highlight row */
+    /* DESACTIVAR COMPLETAMENTE las animaciones de hover en esta tabla */
+    /* Sobrescribir los estilos globales de style.css */
+    #formAsignacion .table tbody tr,
+    #formAsignacion .table tbody tr th,
+    #formAsignacion .table tbody tr td {
+        transition: none !important;
+        transform: none !important;
     }
-    .table-hover tbody tr:hover th {
-        background-color: #f8f9fa;
+    
+    #formAsignacion .table tbody tr:hover {
+        background-color: transparent !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+    
+    #formAsignacion .table tbody tr:hover th {
+        background-color: white !important;
+    }
+    
+    #formAsignacion .table tbody tr:hover td {
+        background-color: transparent !important;
     }
     
     .form-check-input:checked {
