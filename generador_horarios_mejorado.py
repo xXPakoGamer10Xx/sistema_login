@@ -193,7 +193,7 @@ class GeneradorHorariosMejorado:
         version_nombre=None,
         creado_por=None,
         dias_semana=None,
-        tiempo_limite=300,
+        tiempo_limite=60,  # OPTIMIZADO: Reducido de 300s a 60s
     ):
         if not ORTOOLS_AVAILABLE:
             raise ImportError("OR-Tools no está disponible")
@@ -228,6 +228,10 @@ class GeneradorHorariosMejorado:
         self.profesor_por_materia_grupo = {}  # (grupo_id, materia_id) -> profesor_id (UNO solo)
         self.horarios_por_turno = {}
         self.disponibilidades = {}
+        
+        # OPTIMIZACIÓN: Cachés para evitar consultas repetidas
+        self._cache_horarios_existentes = {}  # profesor_id -> [(horario_id, dia_semana)]
+        self._cache_capacidad_profesor = {}  # (profesor_id, turno) -> capacidad
 
         self.model = None
         self.solver = None
@@ -374,27 +378,35 @@ class GeneradorHorariosMejorado:
         """
         Calcula la capacidad REAL restante de un profesor en un turno.
         Capacidad = (Slots Disponibles) - (Slots Ocupados en otros grupos)
+        
+        OPTIMIZADO: Usa caché para evitar consultas repetidas
         """
-        # 1. Obtener horarios del turno
-        horarios_turno = Horario.query.filter_by(turno=turno, activo=True).all()
+        # Verificar caché primero
+        cache_key = (profesor_id, turno)
+        if cache_key in self._cache_capacidad_profesor:
+            return self._cache_capacidad_profesor[cache_key]
+        
+        # 1. Obtener horarios del turno (usar caché del objeto si existe)
+        if turno not in self.horarios_por_turno:
+            horarios_turno = Horario.query.filter_by(turno=turno, activo=True).all()
+            self.horarios_por_turno[turno] = horarios_turno
+        else:
+            horarios_turno = self.horarios_por_turno.get(turno, [])
+        
         horarios_ids = [h.id for h in horarios_turno]
         
         if not horarios_ids:
+            self._cache_capacidad_profesor[cache_key] = 0
             return 0
 
-        # 2. Contar slots disponibles (DisponibilidadProfesor)
-        slots_totales = 0
-        for horario_id in horarios_ids:
-            for dia in self.dias_semana:
-                disp = DisponibilidadProfesor.query.filter_by(
-                    profesor_id=profesor_id,
-                    horario_id=horario_id,
-                    dia_semana=dia,
-                    activo=True,
-                    disponible=True,
-                ).first()
-                if disp:
-                    slots_totales += 1
+        # 2. Contar slots disponibles con query optimizada (COUNT en BD)
+        slots_totales = DisponibilidadProfesor.query.filter(
+            DisponibilidadProfesor.profesor_id == profesor_id,
+            DisponibilidadProfesor.horario_id.in_(horarios_ids),
+            DisponibilidadProfesor.dia_semana.in_(self.dias_semana),
+            DisponibilidadProfesor.activo == True,
+            DisponibilidadProfesor.disponible == True,
+        ).count()
         
         # 3. Contar slots ocupados (HorarioAcademico)
         # Excluyendo los grupos actuales (porque los estamos regenerando)
@@ -409,6 +421,9 @@ class GeneradorHorariosMejorado:
         ).count()
         
         capacidad = max(0, slots_totales - slots_ocupados)
+        
+        # Guardar en caché
+        self._cache_capacidad_profesor[cache_key] = capacidad
         return capacidad
 
     def _calcular_slots_efectivos(self, grupo, materias, horarios_turno, detalle=False):
@@ -802,12 +817,12 @@ class GeneradorHorariosMejorado:
 
     def agregar_funcion_objetivo_mejorada(self):
         """
-        Función objetivo avanzada para:
-        1. Evitar horarios "planos" (mismo horario todos los días)
-        2. Favorecer bloques de 2 horas
-        3. Compactar horarios (reducir huecos)
+        Función objetivo OPTIMIZADA para convergencia rápida:
+        1. Penalizar horarios extremos (suave)
+        2. Favorecer distribución de materias en diferentes días
+        
+        OPTIMIZADO: Eliminadas variables auxiliares innecesarias que ralentizaban el solver
         """
-        print("🎯 Configurando función objetivo mejorada...")
         obj_terms = []
 
         for grupo in self.grupos:
@@ -817,8 +832,8 @@ class GeneradorHorariosMejorado:
             # --- 1. Penalizar horarios tempranos/tardíos extremos (suave) ---
             for idx, horario in enumerate(horarios):
                 peso = 0
-                if idx == 0: peso = 10
-                elif idx == len(horarios) - 1: peso = 10
+                if idx == 0: peso = 5  # Reducido de 10 a 5
+                elif idx == len(horarios) - 1: peso = 5
                 
                 if peso > 0:
                     for materia in materias:
@@ -827,28 +842,8 @@ class GeneradorHorariosMejorado:
                             if var is not None:
                                 obj_terms.append(var * peso)
 
-            # --- 2. Favorecer bloques de 2 horas consecutivas ---
-            # Bonificación (penalización negativa) por tener clases seguidas de la misma materia
-            for materia in materias:
-                for dia_idx in range(len(self.dias_semana)):
-                    for i in range(len(horarios) - 1):
-                        h1 = horarios[i]
-                        h2 = horarios[i+1] # Asumimos ordenados
-                        
-                        var1 = self.variables.get((grupo.id, materia.id, h1.id, dia_idx))
-                        var2 = self.variables.get((grupo.id, materia.id, h2.id, dia_idx))
-                        
-                        if var1 is not None and var2 is not None:
-                            # Crear variable auxiliar para producto lógico AND
-                            b_consec = self.model.NewBoolVar(f"consec_{materia.id}_{dia_idx}_{i}")
-                            self.model.AddBoolAnd([var1, var2]).OnlyEnforceIf(b_consec)
-                            self.model.AddBoolOr([var1.Not(), var2.Not()]).OnlyEnforceIf(b_consec.Not())
-                            
-                            # Bonificar enormemente los bloques de 2 horas
-                            obj_terms.append(b_consec * (-50)) 
-
-            # --- 3. Evitar "mismo horario todos los días" (Anti-Flatness) ---
-            # Penalizar si una materia se da a la misma hora en días diferentes
+            # --- 2. Penalizar mismo slot repetido (sin variables auxiliares) ---
+            # Enfoque simplificado: usar directamente la suma de variables
             for materia in materias:
                 for horario in horarios:
                     vars_dias = []
@@ -857,36 +852,10 @@ class GeneradorHorariosMejorado:
                         if var is not None:
                             vars_dias.append(var)
                     
+                    # Penalizar directamente la suma (sin crear IntVar auxiliar)
                     if len(vars_dias) > 1:
-                        # Si la suma de veces que aparece esta materia en este horario es > 1, penalizar
-                        # Cuantas más veces aparezca en el mismo slot, más penalización cuadrática
-                        sum_var = self.model.NewIntVar(0, 5, f"sum_slot_{materia.id}_{horario.id}")
-                        self.model.Add(sum(vars_dias) == sum_var)
-                        
-                        # Penalización simple lineal por ahora, pero fuerte
-                        # Si quieres evitar flat a toda costa: penaliza sum_var * 100
-                        # Pero queremos permitir 2 días a la misma hora (ej Lunes y Miércoles), pero no 5.
-                        # Vamos a penalizar si es > 2
-                        
-                        # Crear booleano: excede_2
-                        # excede_2 = self.model.NewBoolVar(...)
-                        # self.model.Add(sum_var > 2).OnlyEnforceIf(excede_2)
-                        # obj_terms.append(excede_2 * 200)
-                        
-                        # Enfoque más simple: penalizar cada repetición
-                        obj_terms.append(sum_var * 25)
-
-            # --- 4. Aleatoriedad (Ruido) para diversidad ---
-            # Esto ayuda a que diferentes ejecuciones den diferentes resultados
-            # y rompe simetrías que causan horarios idénticos
-            for materia in materias:
-                 for horario in horarios:
-                    for dia_idx in range(len(self.dias_semana)):
-                        var = self.variables.get((grupo.id, materia.id, horario.id, dia_idx))
-                        if var is not None:
-                            # Ruido aleatorio entre 1 y 5
-                            peso_ruido = random.randint(1, 5)
-                            obj_terms.append(var * peso_ruido)
+                        for v in vars_dias:
+                            obj_terms.append(v * 10)
 
         if obj_terms:
             self.model.Minimize(sum(obj_terms))
@@ -1336,7 +1305,7 @@ def generar_horarios_secuencial(
                 version_nombre=f"{version_nombre or 'Secuencial'} - {grupo.codigo}",
                 creado_por=creado_por,
                 dias_semana=dias,
-                tiempo_limite=120,  # 2 minutos por grupo
+                tiempo_limite=30,  # OPTIMIZADO: Reducido de 120s a 30s
             )
 
             resultado = generador.generar()

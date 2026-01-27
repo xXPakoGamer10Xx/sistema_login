@@ -10,4 +10,4 @@ python init_config.py
 
 echo "Starting Gunicorn server on port 5001..."
 # using 4 workers, customize as needed
-exec gunicorn --bind 0.0.0.0:5001 --workers 4 app:app
+exec gunicorn --bind 0.0.0.0:5001 --timeout 600 app:app

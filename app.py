@@ -3858,7 +3858,7 @@ def generar_horarios_masivos_con_progreso(grupos_ids, periodo_academico, version
                 version_nombre=f"{version_nombre or 'Secuencial'} - {grupo.codigo}",
                 creado_por=creado_por,
                 dias_semana=dias_semana or ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'],
-                tiempo_limite=120
+                tiempo_limite=30  # OPTIMIZADO: Reducido de 120s a 30s
             )
             
             resultado = generador.generar()
