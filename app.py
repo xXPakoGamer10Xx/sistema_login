@@ -4663,6 +4663,7 @@ def guardar_configuracion_carga_horaria():
         return jsonify({'success': False, 'message': 'No tienes permisos para esta acción'}), 403
 
     try:
+        from models import ConfiguracionSistema
         data = request.get_json()
         
         # Validar que el límite absoluto no sea excedido
