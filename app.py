@@ -308,15 +308,19 @@ def procesar_horarios(agrupar_por='profesor', carrera_id=None, incluir_ids=False
         # Lógica para agrupar por PROFESOR
         if agrupar_por == 'profesor':
             clave_agrupacion = a.profesor.get_nombre_completo()
+            # Obtener código del grupo para mostrar junto con la materia
+            grupo_codigo = a.grupo if a.grupo else ""
             if incluir_ids:
                 info_clase_html = {
                     'id': a.id,
-                    'html': f"{a.materia.nombre}<br><small class='text-muted'>{a.materia.codigo}</small><br>{a.get_hora_inicio_str()} - {a.get_hora_fin_str()}"
+                    'html': f"{a.materia.nombre}<br><small class='text-muted'>{a.materia.codigo}</small><br>{a.get_hora_inicio_str()} - {a.get_hora_fin_str()}",
+                    'grupo': grupo_codigo
                 }
             else:
                 info_clase_html = (
                     f"{a.materia.nombre}<br>"
                     f"<small class='text-muted'>{a.materia.codigo}</small><br>"
+                    f"<span class='badge bg-primary bg-opacity-25 text-primary' style='font-size:0.65rem;'>Grupo: {grupo_codigo}</span><br>"
                     f"{a.get_hora_inicio_str()} - {a.get_hora_fin_str()}"
                 )
 
@@ -3277,48 +3281,78 @@ def asignacion_masiva_materias():
     
     if request.method == 'POST':
         try:
+            from models import ConfiguracionSistema
+
             # Obtener datos del formulario
             asignaciones_marcadas = set(request.form.getlist('asignaciones[]'))
-            
+
             # Obtener filtros para reconstruir el estado original
             carrera_id = request.args.get('carrera', type=int)
             cuatrimestre = request.args.get('cuatrimestre', type=int)
-            
+
             # Obtener todos los profesores y materias según filtros
             profesores = User.query.filter(
                 User.rol.in_(['profesor_completo', 'profesor_asignatura']),
                 User.activo == True
             ).all()
-            
+
             materias_query = Materia.query.filter_by(activa=True)
             if carrera_id:
                 materias_query = materias_query.filter_by(carrera_id=carrera_id)
             if cuatrimestre:
                 materias_query = materias_query.filter_by(cuatrimestre=cuatrimestre)
             materias = materias_query.all()
-            
+
+            # Crear diccionario de materias para acceso rápido
+            materias_dict = {m.id: m for m in materias}
+
             # Procesar cambios
             contador_asignaciones = 0
             contador_desasignaciones = 0
             errores = []
-            
+            profesores_excedidos = []
+
             # Iterar sobre todos los profesores y materias visibles
             for profesor in profesores:
+                # Obtener límite de horas para este profesor
+                puede_asignar, horas_actuales, limite, horas_disponibles = validar_carga_horaria_profesor(profesor)
+
+                # Calcular horas que se agregarán con las nuevas asignaciones
+                horas_nuevas = 0
+                materias_a_asignar = []
+
                 for materia in materias:
                     clave = f"{profesor.id}-{materia.id}"
                     esta_marcada = clave in asignaciones_marcadas
                     esta_asignada = materia in profesor.materias
-                    
-                    # Si está marcada y no está asignada -> ASIGNAR
+
+                    # Si está marcada y no está asignada -> calcular horas
                     if esta_marcada and not esta_asignada:
-                        profesor.materias.append(materia)
-                        contador_asignaciones += 1
-                    
+                        horas_nuevas += materia.horas_semanales or 3
+                        materias_a_asignar.append(materia)
+
                     # Si NO está marcada y SÍ está asignada -> DESASIGNAR
                     elif not esta_marcada and esta_asignada:
                         profesor.materias.remove(materia)
                         contador_desasignaciones += 1
-            
+
+                # Verificar si el profesor excederá su límite
+                if horas_nuevas > 0:
+                    if (horas_actuales + horas_nuevas) > limite:
+                        profesores_excedidos.append({
+                            'nombre': profesor.get_nombre_completo(),
+                            'horas_actuales': horas_actuales,
+                            'horas_nuevas': horas_nuevas,
+                            'limite': limite,
+                            'exceso': (horas_actuales + horas_nuevas) - limite
+                        })
+                        errores.append(f"{profesor.get_nombre_completo()}: excede límite por {(horas_actuales + horas_nuevas) - limite}h")
+                    else:
+                        # Asignar las materias
+                        for materia in materias_a_asignar:
+                            profesor.materias.append(materia)
+                            contador_asignaciones += 1
+
             # Guardar cambios
             db.session.commit()
             
@@ -3328,14 +3362,21 @@ def asignacion_masiva_materias():
                 mensajes.append(f'{contador_asignaciones} nueva(s) asignación(es)')
             if contador_desasignaciones > 0:
                 mensajes.append(f'{contador_desasignaciones} desasignación(es)')
-            
+
             if mensajes:
                 flash(f'Cambios realizados exitosamente: {", ".join(mensajes)}.', 'success')
             else:
-                flash('No se realizaron cambios.', 'info')
-            
-            if errores:
-                flash(f'Errores: {", ".join(errores)}', 'warning')
+                if not profesores_excedidos:
+                    flash('No se realizaron cambios.', 'info')
+
+            # Mostrar advertencia de profesores que excedieron su límite
+            if profesores_excedidos:
+                msg_excedidos = "No se asignaron materias a los siguientes profesores por exceder su límite de horas: "
+                detalles = [f"{p['nombre']} ({p['horas_actuales']}h + {p['horas_nuevas']}h = {p['horas_actuales'] + p['horas_nuevas']}h, límite: {p['limite']}h)"
+                           for p in profesores_excedidos[:3]]  # Mostrar máximo 3
+                if len(profesores_excedidos) > 3:
+                    detalles.append(f"y {len(profesores_excedidos) - 3} más...")
+                flash(msg_excedidos + "; ".join(detalles), 'warning')
             
             return redirect(url_for('asignacion_masiva_materias'))
             
@@ -3900,6 +3941,100 @@ def api_generacion_progreso():
     global generacion_progreso
     with progreso_lock:
         return jsonify(generacion_progreso.copy())
+
+
+@app.route('/api/validar-disponibilidad-profesores', methods=['POST'])
+@login_required
+def api_validar_disponibilidad_profesores():
+    """
+    API para validar qué profesores tienen disponibilidad registrada
+    antes de generar horarios masivos.
+
+    Retorna lista de profesores sin disponibilidad explícita para que
+    el usuario pueda decidir si continuar (usando disponibilidad virtual)
+    o configurar la disponibilidad primero.
+    """
+    if not current_user.is_admin() and not current_user.is_jefe_carrera():
+        return jsonify({'error': 'No tienes permisos'}), 403
+
+    data = request.get_json()
+    grupos_ids = data.get('grupos_ids', [])
+
+    if not grupos_ids:
+        return jsonify({'error': 'Selecciona al menos un grupo'}), 400
+
+    grupos_ids = [int(gid) for gid in grupos_ids]
+
+    # Obtener grupos
+    grupos = Grupo.query.filter(Grupo.id.in_(grupos_ids)).all()
+
+    profesores_sin_disponibilidad = []
+    profesores_con_disponibilidad = []
+    profesores_revisados = set()
+
+    for grupo in grupos:
+        turno_str = "matutino" if grupo.turno == "M" else "vespertino"
+
+        # Obtener horarios del turno
+        horarios_turno = Horario.query.filter_by(turno=turno_str, activo=True).all()
+        horarios_ids = [h.id for h in horarios_turno]
+
+        for materia in grupo.materias:
+            if not materia.activa:
+                continue
+
+            # Buscar profesor asignado al grupo-materia
+            asignacion = AsignacionProfesorGrupo.query.filter_by(
+                grupo_id=grupo.id, materia_id=materia.id, activo=True
+            ).first()
+
+            profesor = None
+            if asignacion and asignacion.profesor:
+                profesor = asignacion.profesor
+            elif materia.profesores:
+                # Usar el primer profesor de la relación M2M
+                for p in materia.profesores:
+                    if p.activo:
+                        profesor = p
+                        break
+
+            if not profesor or profesor.id in profesores_revisados:
+                continue
+
+            profesores_revisados.add(profesor.id)
+
+            # Verificar si tiene disponibilidad registrada para este turno
+            tiene_disponibilidad = DisponibilidadProfesor.query.filter(
+                DisponibilidadProfesor.profesor_id == profesor.id,
+                DisponibilidadProfesor.horario_id.in_(horarios_ids),
+                DisponibilidadProfesor.activo == True
+            ).first() is not None
+
+            info_profesor = {
+                'id': profesor.id,
+                'nombre': profesor.get_nombre_completo(),
+                'email': profesor.email,
+                'tipo': 'Tiempo Completo' if profesor.rol == 'profesor_completo' else 'Por Asignatura',
+                'materias': [m.nombre for m in profesor.materias[:3]],  # Primeras 3 materias
+                'turno_requerido': turno_str.capitalize()
+            }
+
+            if tiene_disponibilidad:
+                profesores_con_disponibilidad.append(info_profesor)
+            else:
+                profesores_sin_disponibilidad.append(info_profesor)
+
+    return jsonify({
+        'success': True,
+        'total_grupos': len(grupos),
+        'profesores_sin_disponibilidad': profesores_sin_disponibilidad,
+        'profesores_con_disponibilidad': len(profesores_con_disponibilidad),
+        'puede_continuar': True,  # Siempre puede continuar con disponibilidad virtual
+        'mensaje': f"{len(profesores_sin_disponibilidad)} profesor(es) sin disponibilidad registrada. "
+                   f"Se asumirá disponibilidad completa para ellos." if profesores_sin_disponibilidad
+                   else "Todos los profesores tienen disponibilidad configurada."
+    })
+
 
 @app.route('/api/iniciar-generacion-masiva', methods=['POST'])
 @login_required

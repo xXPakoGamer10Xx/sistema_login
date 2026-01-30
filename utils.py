@@ -968,32 +968,52 @@ def generar_plantilla_csv_asignaciones():
 
 def calcular_carga_profesor(profesor):
     """
-    Calcular la carga horaria de un profesor basándose en sus materias y horarios
-    
+    Calcular la carga horaria de un profesor basándose en sus materias y horarios.
+    Usa los límites configurables desde el panel de administración.
+
     Args:
         profesor: Objeto User (profesor)
-    
+
     Returns:
         dict: Información sobre la carga del profesor
     """
-    # Obtener horarios del profesor
+    from models import ConfiguracionSistema, AsignacionProfesorGrupo
+
+    # Obtener horarios generados del profesor
     horarios = HorarioAcademico.query.filter_by(
         profesor_id=profesor.id,
         activo=True
     ).all()
-    
-    # Calcular horas totales
-    total_horas = len(horarios)  # Cada horario es 1 hora
+
+    # Calcular horas de horarios ya generados
+    horas_horarios = len(horarios)  # Cada horario es 1 hora
+
+    # Calcular horas potenciales de materias asignadas (via relación M2M)
+    horas_materias_asignadas = sum(m.horas_semanales or 3 for m in profesor.materias)
+
+    # Calcular horas de asignaciones específicas a grupos
+    asignaciones_grupo = AsignacionProfesorGrupo.query.filter_by(
+        profesor_id=profesor.id,
+        activo=True
+    ).all()
+    horas_asignaciones_grupo = sum(a.materia.horas_semanales or 3 for a in asignaciones_grupo if a.materia)
+
+    # Total de horas: usar el mayor entre horarios generados y materias asignadas
+    # Esto muestra la carga real o potencial del profesor
+    total_horas = max(horas_horarios, horas_materias_asignadas, horas_asignaciones_grupo)
     total_materias = len(profesor.materias)
-    
-    # Definir límites según tipo de profesor
-    # Profesores pueden trabajar máximo 8 horas al día x 5 días = 40 horas semanales
+
+    # Obtener límites desde la configuración del sistema
     if profesor.rol == 'profesor_completo':
-        limite_recomendado = 35  # Recomendado: 35 horas
-        limite_maximo = 40       # Máximo legal: 40 horas (8 horas/día)
+        limite_maximo = ConfiguracionSistema.get_config('horas_tiempo_completo', 40)
+        limite_recomendado = int(limite_maximo * 0.875)  # 87.5% del máximo
     else:  # profesor_asignatura
-        limite_recomendado = 15  # Recomendado: 15 horas
-        limite_maximo = 20       # Máximo: 20 horas
+        limite_maximo = ConfiguracionSistema.get_config('horas_asignatura', 20)
+        limite_recomendado = int(limite_maximo * 0.75)  # 75% del máximo
+
+    # Aplicar límite absoluto del sistema
+    limite_absoluto = ConfiguracionSistema.get_config('horas_limite_absoluto', 50)
+    limite_maximo = min(limite_maximo, limite_absoluto)
     
     # Determinar estado de carga
     if total_horas == 0:
@@ -1013,9 +1033,12 @@ def calcular_carga_profesor(profesor):
         color = 'danger'
     
     porcentaje = (total_horas / limite_maximo * 100) if limite_maximo > 0 else 0
-    
+
     return {
         'total_horas': total_horas,
+        'horas_horarios': horas_horarios,  # Horas de horarios ya generados
+        'horas_materias': horas_materias_asignadas,  # Horas potenciales de materias M2M
+        'horas_grupos': horas_asignaciones_grupo,  # Horas de asignaciones específicas
         'total_materias': total_materias,
         'limite_recomendado': limite_recomendado,
         'limite_maximo': limite_maximo,

@@ -165,7 +165,12 @@
                 <div class="card-body">
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i>
-                        <strong>Nota:</strong> Estos límites se aplicarán al asignar horarios a profesores. El sistema no permitirá exceder las horas máximas configuradas por semana.
+                        <strong>Nota:</strong> Estos límites se aplicarán automáticamente:
+                        <ul class="mb-0 mt-2">
+                            <li>En la <strong>asignación de materias</strong>: Se bloquearán nuevas asignaciones si el profesor excede su límite</li>
+                            <li>En la <strong>generación de horarios</strong>: El sistema respetará los límites al crear horarios</li>
+                            <li>Los profesores que ya estén en su límite se mostrarán con indicadores visuales</li>
+                        </ul>
                     </div>
                     <form id="cargaHorariaForm">
                         <div class="row g-3">

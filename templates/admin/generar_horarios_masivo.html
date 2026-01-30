@@ -368,41 +368,80 @@ function cerrarModalYRecargar() {
     window.location.href = '/admin/horarios-academicos';
 }
 
-// Manejar envío del formulario con AJAX
-document.getElementById('btn-generar').addEventListener('click', function(e) {
-    e.preventDefault();
-    
-    const checkboxes = document.querySelectorAll('.grupo-checkbox:checked');
-    const seleccionados = checkboxes.length;
-    
-    if (seleccionados === 0) {
-        alert('❌ Debe seleccionar al menos un grupo');
-        return;
+// Función para validar disponibilidad de profesores
+function validarDisponibilidadProfesores(gruposIds) {
+    return fetch('/api/validar-disponibilidad-profesores', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ grupos_ids: gruposIds })
+    })
+    .then(response => response.json());
+}
+
+// Función para mostrar el modal de advertencia de disponibilidad
+function mostrarModalDisponibilidad(data, gruposIds) {
+    const profesoresSinDisp = data.profesores_sin_disponibilidad || [];
+
+    if (profesoresSinDisp.length === 0) {
+        // Todos tienen disponibilidad, continuar directamente
+        return true;
     }
-    
-    const confirmacion = confirm(
-        `🚀 ¿Generar horarios para ${seleccionados} grupo(s)?\n\n` +
-        `✓ Verás el progreso en tiempo real\n` +
-        `✓ Cada grupo se procesa uno por uno\n` +
-        `⚠️ Los horarios anteriores se desactivarán\n\n` +
-        `Este proceso puede tomar varios minutos.`
-    );
-    
-    if (!confirmacion) return;
-    
-    // Recoger IDs de grupos seleccionados
-    const gruposIds = Array.from(checkboxes).map(cb => cb.value);
+
+    // Construir lista de profesores
+    let listaHTML = '';
+    profesoresSinDisp.forEach(prof => {
+        listaHTML += `
+            <tr>
+                <td><strong>${prof.nombre}</strong></td>
+                <td><span class="badge bg-${prof.tipo === 'Tiempo Completo' ? 'primary' : 'info'}">${prof.tipo}</span></td>
+                <td>${prof.turno_requerido}</td>
+                <td><small>${prof.materias.join(', ')}</small></td>
+            </tr>
+        `;
+    });
+
+    document.getElementById('lista-profesores-sin-disponibilidad').innerHTML = listaHTML;
+    document.getElementById('cantidad-sin-disponibilidad').textContent = profesoresSinDisp.length;
+    document.getElementById('cantidad-con-disponibilidad').textContent = data.profesores_con_disponibilidad;
+
+    // Guardar grupos para continuar después
+    window.gruposParaGenerar = gruposIds;
+
+    // Mostrar modal
+    document.getElementById('disponibilidadModal').style.display = 'flex';
+
+    return false; // No continuar automáticamente
+}
+
+// Función para continuar con la generación después de ver la advertencia
+function continuarConGeneracion() {
+    document.getElementById('disponibilidadModal').style.display = 'none';
+
+    const gruposIds = window.gruposParaGenerar;
     const versionNombre = document.getElementById('version_nombre').value;
     const diasSemana = document.getElementById('dias_semana').value;
-    
-    // Deshabilitar botón
+
+    iniciarGeneracionReal(gruposIds, versionNombre, diasSemana);
+}
+
+// Función para cancelar y configurar disponibilidad
+function cancelarYConfigurar() {
+    document.getElementById('disponibilidadModal').style.display = 'none';
+    // Redirigir a la página de disponibilidad
+    window.location.href = '/admin/disponibilidad';
+}
+
+// Función que realmente inicia la generación
+function iniciarGeneracionReal(gruposIds, versionNombre, diasSemana) {
     const btnGenerar = document.getElementById('btn-generar');
     btnGenerar.disabled = true;
     btnGenerar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generando...';
-    
-    // Mostrar modal
-    mostrarModalCarga(seleccionados);
-    
+
+    // Mostrar modal de progreso
+    mostrarModalCarga(gruposIds.length);
+
     // Enviar solicitud AJAX
     fetch('/api/iniciar-generacion-masiva', {
         method: 'POST',
@@ -424,9 +463,9 @@ document.getElementById('btn-generar').addEventListener('click', function(e) {
             btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
             return;
         }
-        
+
         // Iniciar polling del progreso
-        iniciarPolling(seleccionados);
+        iniciarPolling(gruposIds.length);
     })
     .catch(error => {
         console.error('Error:', error);
@@ -435,6 +474,67 @@ document.getElementById('btn-generar').addEventListener('click', function(e) {
         btnGenerar.disabled = false;
         btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
     });
+}
+
+// Manejar envío del formulario con AJAX
+document.getElementById('btn-generar').addEventListener('click', function(e) {
+    e.preventDefault();
+
+    const checkboxes = document.querySelectorAll('.grupo-checkbox:checked');
+    const seleccionados = checkboxes.length;
+
+    if (seleccionados === 0) {
+        alert('❌ Debe seleccionar al menos un grupo');
+        return;
+    }
+
+    // Recoger IDs de grupos seleccionados
+    const gruposIds = Array.from(checkboxes).map(cb => cb.value);
+    const versionNombre = document.getElementById('version_nombre').value;
+    const diasSemana = document.getElementById('dias_semana').value;
+
+    // Deshabilitar botón temporalmente
+    const btnGenerar = document.getElementById('btn-generar');
+    btnGenerar.disabled = true;
+    btnGenerar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Validando...';
+
+    // PASO 1: Validar disponibilidad de profesores
+    validarDisponibilidadProfesores(gruposIds)
+        .then(data => {
+            btnGenerar.disabled = false;
+            btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
+
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+
+            const profesoresSinDisp = data.profesores_sin_disponibilidad || [];
+
+            if (profesoresSinDisp.length > 0) {
+                // Mostrar modal de advertencia
+                mostrarModalDisponibilidad(data, gruposIds);
+            } else {
+                // Todos tienen disponibilidad, preguntar confirmación normal
+                const confirmacion = confirm(
+                    `🚀 ¿Generar horarios para ${seleccionados} grupo(s)?\n\n` +
+                    `✓ Todos los profesores tienen disponibilidad configurada\n` +
+                    `✓ Verás el progreso en tiempo real\n` +
+                    `⚠️ Los horarios anteriores se desactivarán\n\n` +
+                    `Este proceso puede tomar varios minutos.`
+                );
+
+                if (confirmacion) {
+                    iniciarGeneracionReal(gruposIds, versionNombre, diasSemana);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            btnGenerar.disabled = false;
+            btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
+            alert('Error al validar disponibilidad de profesores');
+        });
 });
 
 // Inicializar contador
@@ -508,6 +608,76 @@ actualizarContador();
     </div>
 </div>
 
+<!-- Modal de Advertencia de Disponibilidad -->
+<div id="disponibilidadModal" class="modal-overlay" style="display: none;">
+    <div class="modal-disponibilidad">
+        <div class="modal-header-disponibilidad">
+            <h4>
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Profesores sin Disponibilidad Configurada
+            </h4>
+        </div>
+        <div class="modal-body-disponibilidad">
+            <!-- Resumen -->
+            <div class="row mb-3">
+                <div class="col-6">
+                    <div class="alert alert-warning text-center py-2 mb-0">
+                        <h4 class="mb-0" id="cantidad-sin-disponibilidad">0</h4>
+                        <small>Sin disponibilidad</small>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="alert alert-success text-center py-2 mb-0">
+                        <h4 class="mb-0" id="cantidad-con-disponibilidad">0</h4>
+                        <small>Con disponibilidad</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Explicación -->
+            <div class="alert alert-info py-2 mb-3">
+                <i class="fas fa-info-circle me-1"></i>
+                <small>Los siguientes profesores no tienen disponibilidad registrada.
+                Si continúas, el sistema <strong>asumirá que están disponibles en todos los horarios</strong> del turno correspondiente.</small>
+            </div>
+
+            <!-- Lista de profesores -->
+            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                <table class="table table-sm table-striped mb-0">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th>Profesor</th>
+                            <th>Tipo</th>
+                            <th>Turno</th>
+                            <th>Materias</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-profesores-sin-disponibilidad">
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Botones -->
+            <div class="d-flex justify-content-between mt-4">
+                <button onclick="cancelarYConfigurar()" class="btn btn-outline-secondary">
+                    <i class="fas fa-cog me-1"></i>
+                    Configurar Disponibilidad
+                </button>
+                <button onclick="continuarConGeneracion()" class="btn btn-warning">
+                    <i class="fas fa-forward me-1"></i>
+                    Continuar de Todos Modos
+                </button>
+            </div>
+
+            <small class="text-muted d-block text-center mt-3">
+                <i class="fas fa-lightbulb me-1"></i>
+                Recomendación: Configura la disponibilidad para mejores resultados
+            </small>
+        </div>
+    </div>
+</div>
+
 <style>
 .modal-overlay {
     position: fixed;
@@ -566,6 +736,32 @@ actualizarContador();
 .progress-bar {
     border-radius: 15px;
     transition: width 0.3s ease;
+}
+
+/* Estilos para modal de disponibilidad */
+.modal-disponibilidad {
+    background: white;
+    border-radius: 15px;
+    width: 95%;
+    max-width: 650px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease;
+}
+
+.modal-header-disponibilidad {
+    background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 15px 15px 0 0;
+    text-align: center;
+}
+
+.modal-header-disponibilidad h4 {
+    margin: 0;
+}
+
+.modal-body-disponibilidad {
+    padding: 25px;
 }
 </style>
 {% endblock %}
