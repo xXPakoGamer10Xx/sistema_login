@@ -3999,9 +3999,31 @@ def generar_horarios_masivos_con_progreso(grupos_ids, periodo_academico, version
             else:
                 resultados['grupos_fallidos'] += 1
                 
+                # Guardar error detallado para mostrar en UI
+                with progreso_lock:
+                    if 'errores_detallados' not in generacion_progreso:
+                        generacion_progreso['errores_detallados'] = []
+                    generacion_progreso['errores_detallados'].append({
+                        'grupo': grupo.codigo,
+                        'error': resultado.get('mensaje', 'Error desconocido'),
+                        'errores_validacion': resultado.get('errores_validacion', [])
+                    })
+                    generacion_progreso['mensaje'] = f"❌ Error en {grupo.codigo}: {resultado.get('mensaje', 'Error desconocido')}"
+                
         except Exception as e:
             db.session.rollback()
             resultados['grupos_fallidos'] += 1
+            
+            # Guardar error de excepción en progreso
+            with progreso_lock:
+                if 'errores_detallados' not in generacion_progreso:
+                    generacion_progreso['errores_detallados'] = []
+                generacion_progreso['errores_detallados'].append({
+                    'grupo': grupo.codigo,
+                    'error': str(e),
+                    'errores_validacion': []
+                })
+                generacion_progreso['mensaje'] = f"❌ Error en {grupo.codigo}: {str(e)}"
             print(f"Error en grupo {grupo.codigo}: {e}")
     
     # Resumen final
@@ -7842,7 +7864,7 @@ def listar_versiones_admin():
 @app.route('/admin/horarios/versiones/<int:version_id>/descargar/excel')
 @login_required
 def descargar_version_excel_admin(version_id):
-    """Descargar horarios de una versión en Excel (Admin)"""
+    """Descargar horarios de una versión en Excel (Admin) - Formato tabla tipo horario escolar"""
     if not current_user.is_admin():
         flash('No tienes permisos para acceder a esta página.', 'error')
         return redirect(url_for('dashboard'))
@@ -7855,17 +7877,9 @@ def descargar_version_excel_admin(version_id):
     # Usar datos del backup JSON
     datos_backup = json.loads(version.datos_horarios) if version.datos_horarios else []
     
-    # Ordenar: por grupo, día de la semana (L-V), y hora
-    dias_orden = {'lunes': 1, 'martes': 2, 'miercoles': 3, 'miércoles': 3, 'jueves': 4, 'viernes': 5, 'sabado': 6, 'sábado': 6}
-    
-    def get_orden(d):
-        dia = d.get('dia_semana', '').lower()
-        hora_str = '00:00'
-        if d.get('horario_id'):
-            horario = Horario.query.get(d['horario_id'])
-            if horario:
-                hora_str = horario.hora_inicio.strftime('%H:%M')
-        return (dias_orden.get(dia, 99), hora_str)
+    # Días de la semana en orden
+    dias_semana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+    dias_display = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
     
     # Organizar por grupo
     horarios_por_grupo = {}
@@ -7874,10 +7888,6 @@ def descargar_version_excel_admin(version_id):
         if grupo not in horarios_por_grupo:
             horarios_por_grupo[grupo] = []
         horarios_por_grupo[grupo].append(d)
-    
-    # Ordenar dentro de cada grupo
-    for grupo in horarios_por_grupo:
-        horarios_por_grupo[grupo] = sorted(horarios_por_grupo[grupo], key=get_orden)
     
     # Crear Excel
     from openpyxl import Workbook
@@ -7891,9 +7901,10 @@ def descargar_version_excel_admin(version_id):
     header_fill = PatternFill(start_color="1e3c72", end_color="1e3c72", fill_type="solid")
     grupo_font = Font(bold=True, color="FFFFFF", size=14)
     grupo_fill = PatternFill(start_color="2a5298", end_color="2a5298", fill_type="solid")
+    hora_font = Font(bold=True)
+    hora_fill = PatternFill(start_color="e8f4fd", end_color="e8f4fd", fill_type="solid")
+    cell_font = Font(size=9)
     thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    
-    headers = ['Día', 'Hora Inicio', 'Hora Fin', 'Materia', 'Profesor']
     
     for grupo in sorted(horarios_por_grupo.keys()):
         horarios_grupo = horarios_por_grupo[grupo]
@@ -7901,41 +7912,85 @@ def descargar_version_excel_admin(version_id):
         try:
             ws = wb.create_sheet(title=sheet_name)
         except ValueError:
-            # Si el nombre ya existe (raro), usar sufijo
             ws = wb.create_sheet(title=f"{sheet_name}_")
-            
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
+        
+        # Título del grupo
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=7)
         grupo_cell = ws.cell(row=1, column=1, value=f"📚 Horarios - Grupo: {grupo}")
         grupo_cell.font = grupo_font
         grupo_cell.fill = grupo_fill
         grupo_cell.alignment = Alignment(horizontal='center', vertical='center')
         ws.row_dimensions[1].height = 30
         
+        # Obtener todas las horas únicas de este grupo
+        horas_dict = {}  # {horario_id: (hora_inicio, hora_fin)}
+        for d in horarios_grupo:
+            if d.get('horario_id'):
+                horario = Horario.query.get(d['horario_id'])
+                if horario:
+                    horas_dict[d['horario_id']] = (horario.hora_inicio, horario.hora_fin)
+        
+        # Ordenar horas por hora_inicio
+        horas_ordenadas = sorted(horas_dict.items(), key=lambda x: x[1][0])
+        
+        # Crear diccionario para búsqueda rápida: (dia, horario_id) -> (materia, profesor)
+        horario_lookup = {}
+        for d in horarios_grupo:
+            dia = d.get('dia_semana', '').lower()
+            # Normalizar día
+            if dia == 'miércoles':
+                dia = 'miercoles'
+            if dia == 'sábado':
+                dia = 'sabado'
+            horario_id = d.get('horario_id')
+            if dia and horario_id:
+                materia = Materia.query.get(d.get('materia_id')) if d.get('materia_id') else None
+                profesor = User.query.get(d.get('profesor_id')) if d.get('profesor_id') else None
+                materia_nombre = materia.nombre if materia else ''
+                profesor_nombre = profesor.get_nombre_completo() if profesor else ''
+                horario_lookup[(dia, horario_id)] = (materia_nombre, profesor_nombre)
+        
+        # Encabezados: Hora | Lunes | Martes | Miércoles | Jueves | Viernes | Sábado
+        headers = ['Hora'] + dias_display
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=3, column=col, value=header)
             cell.font = header_font
             cell.fill = header_fill
-            cell.alignment = Alignment(horizontal='center')
+            cell.alignment = Alignment(horizontal='center', vertical='center')
             cell.border = thin_border
         
+        # Filas de horas
         row = 4
-        for d in horarios_grupo:
-            horario = Horario.query.get(d.get('horario_id')) if d.get('horario_id') else None
-            materia = Materia.query.get(d.get('materia_id')) if d.get('materia_id') else None
-            profesor = User.query.get(d.get('profesor_id')) if d.get('profesor_id') else None
+        for horario_id, (hora_inicio, hora_fin) in horas_ordenadas:
+            # Columna de hora
+            hora_str = f"{hora_inicio.strftime('%H:%M')} - {hora_fin.strftime('%H:%M')}"
+            hora_cell = ws.cell(row=row, column=1, value=hora_str)
+            hora_cell.font = hora_font
+            hora_cell.fill = hora_fill
+            hora_cell.alignment = Alignment(horizontal='center', vertical='center')
+            hora_cell.border = thin_border
             
-            ws.cell(row=row, column=1, value=d.get('dia_semana', '').capitalize()).border = thin_border
-            ws.cell(row=row, column=2, value=horario.hora_inicio.strftime('%H:%M') if horario else '').border = thin_border
-            ws.cell(row=row, column=3, value=horario.hora_fin.strftime('%H:%M') if horario else '').border = thin_border
-            ws.cell(row=row, column=4, value=materia.nombre if materia else '').border = thin_border
-            ws.cell(row=row, column=5, value=profesor.get_nombre_completo() if profesor else '').border = thin_border
+            # Columnas de días
+            for col_idx, dia in enumerate(dias_semana, 2):
+                key = (dia, horario_id)
+                if key in horario_lookup:
+                    materia_nombre, profesor_nombre = horario_lookup[key]
+                    contenido = f"{materia_nombre}\n{profesor_nombre}"
+                else:
+                    contenido = ""
+                
+                cell = ws.cell(row=row, column=col_idx, value=contenido)
+                cell.font = cell_font
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                cell.border = thin_border
+            
+            ws.row_dimensions[row].height = 40
             row += 1
-            
-        ws.column_dimensions['A'].width = 12
-        ws.column_dimensions['B'].width = 12
-        ws.column_dimensions['C'].width = 12
-        ws.column_dimensions['D'].width = 45
-        ws.column_dimensions['E'].width = 35
+        
+        # Ajustar anchos de columnas
+        ws.column_dimensions['A'].width = 18  # Hora
+        for col_idx in range(2, 8):
+            ws.column_dimensions[chr(64 + col_idx)].width = 25  # Días
     
     buffer = BytesIO()
     wb.save(buffer)
@@ -8151,7 +8206,7 @@ def api_detectar_conflictos():
 @app.route('/jefe/horarios/versiones/<int:version_id>/descargar/excel')
 @login_required
 def descargar_version_excel_jefe(version_id):
-    """Descargar horarios de una versión en Excel"""
+    """Descargar horarios de una versión en Excel - Formato tabla tipo horario escolar"""
     if not current_user.is_jefe_carrera():
         flash('No tienes permisos para acceder a esta página.', 'error')
         return redirect(url_for('dashboard'))
@@ -8175,18 +8230,9 @@ def descargar_version_excel_jefe(version_id):
     # Filtrar solo los grupos que pertenecen al jefe
     datos_filtrados = [d for d in datos_backup if d.get('grupo') in grupos_jefe]
     
-    # Ordenar: por grupo, día de la semana (L-V), y hora
-    dias_orden = {'lunes': 1, 'martes': 2, 'miercoles': 3, 'miércoles': 3, 'jueves': 4, 'viernes': 5, 'sabado': 6, 'sábado': 6}
-    
-    def get_orden(d):
-        dia = d.get('dia_semana', '').lower()
-        # Obtener hora del horario_id
-        hora_str = '00:00'
-        if d.get('horario_id'):
-            horario = Horario.query.get(d['horario_id'])
-            if horario:
-                hora_str = horario.hora_inicio.strftime('%H:%M')
-        return (dias_orden.get(dia, 99), hora_str)
+    # Días de la semana en orden
+    dias_semana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+    dias_display = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
     
     # Organizar por grupo
     horarios_por_grupo = {}
@@ -8196,17 +8242,11 @@ def descargar_version_excel_jefe(version_id):
             horarios_por_grupo[grupo] = []
         horarios_por_grupo[grupo].append(d)
     
-    # Ordenar dentro de cada grupo
-    for grupo in horarios_por_grupo:
-        horarios_por_grupo[grupo] = sorted(horarios_por_grupo[grupo], key=get_orden)
-    
     # Crear Excel
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-    from openpyxl.utils import get_column_letter
     
     wb = Workbook()
-    # Eliminar hoja por defecto
     wb.remove(wb.active)
     
     # Estilos
@@ -8214,12 +8254,13 @@ def descargar_version_excel_jefe(version_id):
     header_fill = PatternFill(start_color="1e3c72", end_color="1e3c72", fill_type="solid")
     grupo_font = Font(bold=True, color="FFFFFF", size=14)
     grupo_fill = PatternFill(start_color="2a5298", end_color="2a5298", fill_type="solid")
+    hora_font = Font(bold=True)
+    hora_fill = PatternFill(start_color="e8f4fd", end_color="e8f4fd", fill_type="solid")
+    cell_font = Font(size=9)
     thin_border = Border(
         left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'), bottom=Side(style='thin')
     )
-    
-    headers = ['Día', 'Hora Inicio', 'Hora Fin', 'Materia', 'Profesor']
     
     # Crear una hoja por grupo
     for grupo in sorted(horarios_por_grupo.keys()):
@@ -8227,45 +8268,88 @@ def descargar_version_excel_jefe(version_id):
         
         # Crear hoja con nombre del grupo (máx 31 caracteres para Excel)
         sheet_name = grupo[:31] if len(grupo) > 31 else grupo
-        ws = wb.create_sheet(title=sheet_name)
+        try:
+            ws = wb.create_sheet(title=sheet_name)
+        except ValueError:
+            ws = wb.create_sheet(title=f"{sheet_name}_")
         
         # Título del grupo
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=7)
         grupo_cell = ws.cell(row=1, column=1, value=f"📚 Horarios - Grupo: {grupo}")
         grupo_cell.font = grupo_font
         grupo_cell.fill = grupo_fill
         grupo_cell.alignment = Alignment(horizontal='center', vertical='center')
         ws.row_dimensions[1].height = 30
         
-        # Headers de columnas
+        # Obtener todas las horas únicas de este grupo
+        horas_dict = {}  # {horario_id: (hora_inicio, hora_fin)}
+        for d in horarios_grupo:
+            if d.get('horario_id'):
+                horario = Horario.query.get(d['horario_id'])
+                if horario:
+                    horas_dict[d['horario_id']] = (horario.hora_inicio, horario.hora_fin)
+        
+        # Ordenar horas por hora_inicio
+        horas_ordenadas = sorted(horas_dict.items(), key=lambda x: x[1][0])
+        
+        # Crear diccionario para búsqueda rápida: (dia, horario_id) -> (materia, profesor)
+        horario_lookup = {}
+        for d in horarios_grupo:
+            dia = d.get('dia_semana', '').lower()
+            # Normalizar día
+            if dia == 'miércoles':
+                dia = 'miercoles'
+            if dia == 'sábado':
+                dia = 'sabado'
+            horario_id = d.get('horario_id')
+            if dia and horario_id:
+                materia = Materia.query.get(d.get('materia_id')) if d.get('materia_id') else None
+                profesor = User.query.get(d.get('profesor_id')) if d.get('profesor_id') else None
+                materia_nombre = materia.nombre if materia else ''
+                profesor_nombre = profesor.get_nombre_completo() if profesor else ''
+                horario_lookup[(dia, horario_id)] = (materia_nombre, profesor_nombre)
+        
+        # Encabezados: Hora | Lunes | Martes | Miércoles | Jueves | Viernes | Sábado
+        headers = ['Hora'] + dias_display
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=3, column=col, value=header)
             cell.font = header_font
             cell.fill = header_fill
-            cell.alignment = Alignment(horizontal='center')
+            cell.alignment = Alignment(horizontal='center', vertical='center')
             cell.border = thin_border
         
-        # Datos del grupo desde backup
+        # Filas de horas
         row = 4
-        for d in horarios_grupo:
-            # Obtener datos relacionados
-            horario = Horario.query.get(d.get('horario_id')) if d.get('horario_id') else None
-            materia = Materia.query.get(d.get('materia_id')) if d.get('materia_id') else None
-            profesor = User.query.get(d.get('profesor_id')) if d.get('profesor_id') else None
+        for horario_id, (hora_inicio, hora_fin) in horas_ordenadas:
+            # Columna de hora
+            hora_str = f"{hora_inicio.strftime('%H:%M')} - {hora_fin.strftime('%H:%M')}"
+            hora_cell = ws.cell(row=row, column=1, value=hora_str)
+            hora_cell.font = hora_font
+            hora_cell.fill = hora_fill
+            hora_cell.alignment = Alignment(horizontal='center', vertical='center')
+            hora_cell.border = thin_border
             
-            ws.cell(row=row, column=1, value=d.get('dia_semana', '').capitalize()).border = thin_border
-            ws.cell(row=row, column=2, value=horario.hora_inicio.strftime('%H:%M') if horario else '').border = thin_border
-            ws.cell(row=row, column=3, value=horario.hora_fin.strftime('%H:%M') if horario else '').border = thin_border
-            ws.cell(row=row, column=4, value=materia.nombre if materia else '').border = thin_border
-            ws.cell(row=row, column=5, value=profesor.get_nombre_completo() if profesor else '').border = thin_border
+            # Columnas de días
+            for col_idx, dia in enumerate(dias_semana, 2):
+                key = (dia, horario_id)
+                if key in horario_lookup:
+                    materia_nombre, profesor_nombre = horario_lookup[key]
+                    contenido = f"{materia_nombre}\n{profesor_nombre}"
+                else:
+                    contenido = ""
+                
+                cell = ws.cell(row=row, column=col_idx, value=contenido)
+                cell.font = cell_font
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                cell.border = thin_border
+            
+            ws.row_dimensions[row].height = 40
             row += 1
         
-        # Ajustar anchos de columnas en esta hoja
-        ws.column_dimensions['A'].width = 12
-        ws.column_dimensions['B'].width = 12
-        ws.column_dimensions['C'].width = 12
-        ws.column_dimensions['D'].width = 45
-        ws.column_dimensions['E'].width = 35
+        # Ajustar anchos de columnas
+        ws.column_dimensions['A'].width = 18  # Hora
+        for col_idx in range(2, 8):
+            ws.column_dimensions[chr(64 + col_idx)].width = 25  # Días
     
     # Guardar en buffer
     buffer = BytesIO()

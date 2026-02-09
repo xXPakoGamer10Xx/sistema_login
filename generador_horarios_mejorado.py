@@ -1363,11 +1363,14 @@ class GeneradorHorariosMejorado:
                     "horarios_generados": len(self.horarios_generados),
                 }
             else:
+                # Generar diagnóstico detallado del fallo
+                diagnostico = self._generar_diagnostico_fallo()
                 return {
                     "exito": False,
-                    "mensaje": "❌ No se encontró solución factible. Revise disponibilidad de profesores y horas requeridas.",
+                    "mensaje": diagnostico['mensaje'],
                     "grupos_procesados": 0,
                     "horarios_generados": 0,
+                    "errores_validacion": diagnostico['problemas'],
                 }
 
         except Exception as e:
@@ -1381,6 +1384,53 @@ class GeneradorHorariosMejorado:
                 "grupos_procesados": 0,
                 "horarios_generados": 0,
             }
+
+    def _generar_diagnostico_fallo(self):
+        """
+        Genera un diagnóstico detallado cuando no se encuentra solución.
+        Analiza cada grupo-materia para identificar problemas específicos.
+        """
+        problemas = []
+        
+        for grupo in self.grupos:
+            materias = self.materias_por_grupo.get(grupo.id, [])
+            horarios = self.horarios_por_turno.get(grupo.turno, [])
+            
+            for materia in materias:
+                profesor = self.profesor_por_materia_grupo.get((grupo.id, materia.id))
+                horas_req = materia.horas_semanales or 3
+                
+                if not profesor:
+                    problemas.append(f"{grupo.codigo}/{materia.codigo}: Sin profesor asignado")
+                    continue
+                
+                # Contar slots disponibles para este profesor
+                disp_profesor = self.disponibilidades.get(profesor.id, {})
+                slots_disponibles = 0
+                
+                for dia in self.dias_semana:
+                    for horario in horarios:
+                        if disp_profesor.get(dia, {}).get(horario.id, False):
+                            slots_disponibles += 1
+                
+                if slots_disponibles < horas_req:
+                    problemas.append(
+                        f"{grupo.codigo}/{materia.codigo}: {profesor.nombre} {profesor.apellido} "
+                        f"solo tiene {slots_disponibles}h disponibles (necesita {horas_req}h)"
+                    )
+        
+        # Generar mensaje resumido
+        if problemas:
+            mensaje = "❌ " + "; ".join(problemas[:3])
+            if len(problemas) > 3:
+                mensaje += f" ... y {len(problemas) - 3} más"
+        else:
+            mensaje = "❌ No se encontró solución factible. Posible conflicto de horarios entre profesores compartidos."
+        
+        return {
+            'mensaje': mensaje,
+            'problemas': problemas
+        }
 
 
 def generar_horarios_por_etapas(

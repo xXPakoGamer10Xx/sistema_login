@@ -359,7 +359,35 @@ function mostrarResultadoFinal(data) {
     
     // Mostrar botón de cerrar
     document.getElementById('modal-resultado').style.display = 'block';
-    document.getElementById('resultado-mensaje').textContent = data.mensaje;
+    
+    // Construir mensaje con errores detallados si existen
+    let mensajeFinal = data.mensaje || '';
+    
+    if (data.errores_detallados && data.errores_detallados.length > 0) {
+        mensajeFinal += '<div class="alert alert-danger mt-3 text-start" style="max-height: 200px; overflow-y: auto;">';
+        mensajeFinal += '<strong><i class="fas fa-exclamation-triangle me-2"></i>Errores detectados:</strong><ul class="mb-0 mt-2">';
+        
+        data.errores_detallados.forEach(err => {
+            mensajeFinal += `<li><strong>${err.grupo}:</strong> ${err.error}`;
+            
+            // Mostrar errores de validación si existen
+            if (err.errores_validacion && err.errores_validacion.length > 0) {
+                mensajeFinal += '<ul class="small">';
+                err.errores_validacion.slice(0, 5).forEach(valErr => {
+                    mensajeFinal += `<li>${valErr}</li>`;
+                });
+                if (err.errores_validacion.length > 5) {
+                    mensajeFinal += `<li>... y ${err.errores_validacion.length - 5} más</li>`;
+                }
+                mensajeFinal += '</ul>';
+            }
+            mensajeFinal += '</li>';
+        });
+        
+        mensajeFinal += '</ul></div>';
+    }
+    
+    document.getElementById('resultado-mensaje').innerHTML = mensajeFinal;
 }
 
 // Función para cerrar modal y ver resultados
