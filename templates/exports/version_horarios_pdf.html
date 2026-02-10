@@ -47,20 +47,33 @@
             margin-top: 0;
         }
         th {
-            background-color: #f0f0f0;
-            color: #333;
+            background-color: #1e3c72;
+            color: white;
             padding: 8px;
-            text-align: left;
+            text-align: center;
             border: 1px solid #ddd;
             font-size: 9pt;
         }
         td {
             padding: 6px 8px;
             border: 1px solid #ddd;
-            font-size: 9pt;
+            font-size: 8pt;
+            text-align: center;
+            vertical-align: middle;
         }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
+        td.hora-cell {
+            background-color: #e8f4fd;
+            font-weight: bold;
+            font-size: 8pt;
+            white-space: nowrap;
+        }
+        td .materia-nombre {
+            font-weight: bold;
+            font-size: 8pt;
+        }
+        td .profesor-nombre {
+            font-size: 7pt;
+            color: #555;
         }
         .footer {
             margin-top: 30px;
@@ -111,7 +124,7 @@
         </div>
     </div>
 
-    {% for grupo, horarios in horarios_por_grupo.items() | sort %}
+    {% for grupo, filas in horarios_por_grupo.items() | sort %}
     <div class="grupo-section">
         <div class="grupo-header">
             📚 Grupo: {{ grupo }}
@@ -119,29 +132,24 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 12%">Día</th>
-                    <th style="width: 10%">Hora Inicio</th>
-                    <th style="width: 10%">Hora Fin</th>
-                    <th style="width: 35%">Materia</th>
-                    <th style="width: 33%">Profesor</th>
+                    <th style="width: 12%">Hora</th>
+                    {% for dia in dias_display %}
+                    <th>{{ dia }}</th>
+                    {% endfor %}
                 </tr>
             </thead>
             <tbody>
-                {% for h in horarios %}
+                {% for fila in filas %}
                 <tr>
-                    {% if from_backup %}
-                    <td>{{ h.dia_semana | capitalize }}</td>
-                    <td>{{ h.hora_inicio }}</td>
-                    <td>{{ h.hora_fin }}</td>
-                    <td>{{ h.materia }}</td>
-                    <td>{{ h.profesor }}</td>
-                    {% else %}
-                    <td>{{ h.dia_semana | capitalize }}</td>
-                    <td>{{ h.horario.hora_inicio.strftime('%H:%M') if h.horario else '-' }}</td>
-                    <td>{{ h.horario.hora_fin.strftime('%H:%M') if h.horario else '-' }}</td>
-                    <td>{{ h.materia.nombre if h.materia else '-' }}</td>
-                    <td>{{ h.profesor.get_nombre_completo() if h.profesor else '-' }}</td>
-                    {% endif %}
+                    <td class="hora-cell">{{ fila.hora }}</td>
+                    {% for celda in fila.celdas %}
+                    <td>
+                        {% if celda %}
+                        <div class="materia-nombre">{{ celda.materia }}</div>
+                        <div class="profesor-nombre">{{ celda.profesor }}</div>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -150,7 +158,7 @@
     {% endfor %}
 
     <div class="footer">
-        Sistema de Gestión Académica - {{ version.nombre_version }} - Página 1
+        Sistema de Gestión Académica - {{ version.nombre_version }}
     </div>
 </body>
 </html>
