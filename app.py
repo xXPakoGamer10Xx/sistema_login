@@ -8003,7 +8003,7 @@ def descargar_version_excel_admin(version_id):
 @app.route('/admin/horarios/versiones/<int:version_id>/descargar/pdf')
 @login_required
 def descargar_version_pdf_admin(version_id):
-    """Descargar horarios de una versión en PDF (Admin)"""
+    """Descargar horarios de una versión en PDF (Admin) - Formato tabla tipo horario escolar"""
     if not current_user.is_admin():
         flash('No tienes permisos para acceder a esta página.', 'error')
         return redirect(url_for('dashboard'))
@@ -8014,40 +8014,68 @@ def descargar_version_pdf_admin(version_id):
     version = VersionHorario.query.get_or_404(version_id)
     datos_backup = json.loads(version.datos_horarios) if version.datos_horarios else []
     
-    dias_orden = {'lunes': 1, 'martes': 2, 'miercoles': 3, 'miércoles': 3, 'jueves': 4, 'viernes': 5, 'sabado': 6, 'sábado': 6}
+    dias_semana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+    dias_display = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
     
-    def get_orden(d):
-        dia = d.get('dia_semana', '').lower()
-        hora_str = '00:00'
-        if d.get('horario_id'):
-            horario = Horario.query.get(d['horario_id'])
-            if horario:
-                hora_str = horario.hora_inicio.strftime('%H:%M')
-        return (dias_orden.get(dia, 99), hora_str)
-    
-    horarios_por_grupo = {}
+    # Organizar por grupo
+    datos_por_grupo = {}
     for d in datos_backup:
         grupo = d.get('grupo', 'Sin grupo')
-        if grupo not in horarios_por_grupo:
-            horarios_por_grupo[grupo] = []
-            
-        horario = Horario.query.get(d.get('horario_id')) if d.get('horario_id') else None
-        materia = Materia.query.get(d.get('materia_id')) if d.get('materia_id') else None
-        profesor = User.query.get(d.get('profesor_id')) if d.get('profesor_id') else None
+        if grupo not in datos_por_grupo:
+            datos_por_grupo[grupo] = []
+        datos_por_grupo[grupo].append(d)
+    
+    # Construir estructura de cuadrícula para cada grupo
+    horarios_por_grupo = {}
+    for grupo, datos in datos_por_grupo.items():
+        # Obtener horas únicas
+        horas_dict = {}
+        for d in datos:
+            if d.get('horario_id'):
+                horario = Horario.query.get(d['horario_id'])
+                if horario:
+                    horas_dict[d['horario_id']] = (horario.hora_inicio, horario.hora_fin)
         
-        horarios_por_grupo[grupo].append({
-            'dia_semana': d.get('dia_semana', ''),
-            'hora_inicio': horario.hora_inicio.strftime('%H:%M') if horario else '-',
-            'hora_fin': horario.hora_fin.strftime('%H:%M') if horario else '-',
-            'materia': materia.nombre if materia else '-',
-            'profesor': profesor.get_nombre_completo() if profesor else '-',
-            '_orden': get_orden(d)
-        })
+        horas_ordenadas = sorted(horas_dict.items(), key=lambda x: x[1][0])
+        
+        # Crear lookup
+        horario_lookup = {}
+        for d in datos:
+            dia = d.get('dia_semana', '').lower()
+            if dia == 'miércoles': dia = 'miercoles'
+            if dia == 'sábado': dia = 'sabado'
+            horario_id = d.get('horario_id')
+            if dia and horario_id:
+                materia = Materia.query.get(d.get('materia_id')) if d.get('materia_id') else None
+                profesor = User.query.get(d.get('profesor_id')) if d.get('profesor_id') else None
+                horario_lookup[(dia, horario_id)] = {
+                    'materia': materia.nombre if materia else '-',
+                    'profesor': profesor.get_nombre_completo() if profesor else '-'
+                }
+        
+        # Construir filas de la cuadrícula
+        filas = []
+        for horario_id, (hora_inicio, hora_fin) in horas_ordenadas:
+            fila = {
+                'hora': f"{hora_inicio.strftime('%H:%M')} - {hora_fin.strftime('%H:%M')}",
+                'celdas': []
+            }
+            for dia in dias_semana:
+                key = (dia, horario_id)
+                if key in horario_lookup:
+                    fila['celdas'].append(horario_lookup[key])
+                else:
+                    fila['celdas'].append(None)
+            filas.append(fila)
+        
+        horarios_por_grupo[grupo] = filas
     
-    for grupo in horarios_por_grupo:
-        horarios_por_grupo[grupo] = sorted(horarios_por_grupo[grupo], key=lambda x: x['_orden'])
-    
-    html = render_template('exports/version_horarios_pdf.html', version=version, horarios_por_grupo=horarios_por_grupo, total_horarios=len(datos_backup), from_backup=True)
+    html = render_template('exports/version_horarios_pdf.html',
+                         version=version,
+                         horarios_por_grupo=horarios_por_grupo,
+                         dias_display=dias_display,
+                         total_horarios=len(datos_backup),
+                         formato_tabla=True)
     
     from weasyprint import HTML
     pdf = HTML(string=html, base_url=request.url_root).write_pdf()
@@ -8368,7 +8396,7 @@ def descargar_version_excel_jefe(version_id):
 @app.route('/jefe/horarios/versiones/<int:version_id>/descargar/pdf')
 @login_required
 def descargar_version_pdf_jefe(version_id):
-    """Descargar horarios de una versión en PDF"""
+    """Descargar horarios de una versión en PDF - Formato tabla tipo horario escolar"""
     if not current_user.is_jefe_carrera():
         flash('No tienes permisos para acceder a esta página.', 'error')
         return redirect(url_for('dashboard'))
@@ -8392,49 +8420,69 @@ def descargar_version_pdf_jefe(version_id):
     # Filtrar solo los grupos que pertenecen al jefe
     datos_filtrados = [d for d in datos_backup if d.get('grupo') in grupos_jefe]
     
-    # Ordenar por día de la semana y hora
-    dias_orden = {'lunes': 1, 'martes': 2, 'miercoles': 3, 'miércoles': 3, 'jueves': 4, 'viernes': 5, 'sabado': 6, 'sábado': 6}
+    dias_semana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+    dias_display = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
     
-    def get_orden(d):
-        dia = d.get('dia_semana', '').lower()
-        hora_str = '00:00'
-        if d.get('horario_id'):
-            horario = Horario.query.get(d['horario_id'])
-            if horario:
-                hora_str = horario.hora_inicio.strftime('%H:%M')
-        return (dias_orden.get(dia, 99), hora_str)
-    
-    # Organizar por grupo y convertir a datos formateados
-    horarios_por_grupo = {}
+    # Organizar por grupo
+    datos_por_grupo = {}
     for d in datos_filtrados:
         grupo = d.get('grupo', 'Sin grupo')
-        if grupo not in horarios_por_grupo:
-            horarios_por_grupo[grupo] = []
-        
-        # Obtener datos relacionados
-        horario = Horario.query.get(d.get('horario_id')) if d.get('horario_id') else None
-        materia = Materia.query.get(d.get('materia_id')) if d.get('materia_id') else None
-        profesor = User.query.get(d.get('profesor_id')) if d.get('profesor_id') else None
-        
-        horarios_por_grupo[grupo].append({
-            'dia_semana': d.get('dia_semana', ''),
-            'hora_inicio': horario.hora_inicio.strftime('%H:%M') if horario else '-',
-            'hora_fin': horario.hora_fin.strftime('%H:%M') if horario else '-',
-            'materia': materia.nombre if materia else '-',
-            'profesor': profesor.get_nombre_completo() if profesor else '-',
-            '_orden': get_orden(d)
-        })
+        if grupo not in datos_por_grupo:
+            datos_por_grupo[grupo] = []
+        datos_por_grupo[grupo].append(d)
     
-    # Ordenar horarios dentro de cada grupo
-    for grupo in horarios_por_grupo:
-        horarios_por_grupo[grupo] = sorted(horarios_por_grupo[grupo], key=lambda x: x['_orden'])
+    # Construir estructura de cuadrícula para cada grupo
+    horarios_por_grupo = {}
+    for grupo, datos in datos_por_grupo.items():
+        # Obtener horas únicas
+        horas_dict = {}
+        for d in datos:
+            if d.get('horario_id'):
+                horario = Horario.query.get(d['horario_id'])
+                if horario:
+                    horas_dict[d['horario_id']] = (horario.hora_inicio, horario.hora_fin)
+        
+        horas_ordenadas = sorted(horas_dict.items(), key=lambda x: x[1][0])
+        
+        # Crear lookup
+        horario_lookup = {}
+        for d in datos:
+            dia = d.get('dia_semana', '').lower()
+            if dia == 'miércoles': dia = 'miercoles'
+            if dia == 'sábado': dia = 'sabado'
+            horario_id = d.get('horario_id')
+            if dia and horario_id:
+                materia = Materia.query.get(d.get('materia_id')) if d.get('materia_id') else None
+                profesor = User.query.get(d.get('profesor_id')) if d.get('profesor_id') else None
+                horario_lookup[(dia, horario_id)] = {
+                    'materia': materia.nombre if materia else '-',
+                    'profesor': profesor.get_nombre_completo() if profesor else '-'
+                }
+        
+        # Construir filas de la cuadrícula
+        filas = []
+        for horario_id, (hora_inicio, hora_fin) in horas_ordenadas:
+            fila = {
+                'hora': f"{hora_inicio.strftime('%H:%M')} - {hora_fin.strftime('%H:%M')}",
+                'celdas': []
+            }
+            for dia in dias_semana:
+                key = (dia, horario_id)
+                if key in horario_lookup:
+                    fila['celdas'].append(horario_lookup[key])
+                else:
+                    fila['celdas'].append(None)
+            filas.append(fila)
+        
+        horarios_por_grupo[grupo] = filas
     
     # Renderizar template y generar PDF
     html = render_template('exports/version_horarios_pdf.html',
                          version=version,
                          horarios_por_grupo=horarios_por_grupo,
+                         dias_display=dias_display,
                          total_horarios=len(datos_filtrados),
-                         from_backup=True)
+                         formato_tabla=True)
     
     from weasyprint import HTML
     pdf = HTML(string=html, base_url=request.url_root).write_pdf()
