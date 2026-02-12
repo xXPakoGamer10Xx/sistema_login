@@ -12,6 +12,8 @@ services:
       - ./instance:/app/instance
       # Persist User uploads
       - ./static/uploads:/app/static/uploads
+      # Persistencia de los horarios PDF generados
+      - ./horarios:/app/horarios
       # Persist logs
       - ./logs:/app/logs
       # Optional: Mount current directory for development (comment out for production isolation)

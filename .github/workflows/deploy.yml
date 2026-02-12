@@ -22,6 +22,8 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.PROJECT_PATH }}
+            mkdir -p backups
+            cp instance/database.db backups/db_backup_$(date +%F_%H-%M).db || true
             git fetch --all
             git reset --hard origin/main
             docker compose pull || true
