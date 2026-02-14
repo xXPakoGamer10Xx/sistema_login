@@ -1,31 +1,75 @@
-# Sistema de Gestion Academica
+# Sistema de Gestión Académica
 
-Sistema web desarrollado con Flask para la gestion integral de horarios academicos, profesores, materias y carreras. Incluye generacion automatica de horarios, gestion de disponibilidad docente, importacion/exportacion de datos y control de acceso basado en roles.
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-2.3+-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Último commit](https://img.shields.io/github/last-commit/xXPakoGamer10Xx/sistema_login)](https://github.com/xXPakoGamer10Xx/sistema_login/commits/main)
+[![Issues](https://img.shields.io/github/issues/xXPakoGamer10Xx/sistema_login)](https://github.com/xXPakoGamer10Xx/sistema_login/issues)
+[![Stars](https://img.shields.io/github/stars/xXPakoGamer10Xx/sistema_login?style=social)](https://github.com/xXPakoGamer10Xx/sistema_login/stargazers)
+[![Forks](https://img.shields.io/github/forks/xXPakoGamer10Xx/sistema_login?style=social)](https://github.com/xXPakoGamer10Xx/sistema_login/network/members)
 
-## Caracteristicas Principales
+Aplicación web desarrollada con Flask para administrar carreras, materias, grupos, profesores y horarios académicos. Incluye generación automática de horarios, control de disponibilidad docente, importación/exportación de datos, respaldo de base de datos y autenticación por roles.
 
-- **Generacion automatica de horarios** con algoritmo de optimizacion (OR-Tools)
-- **Gestion de disponibilidad** de profesores por dia y hora
-- **Importacion masiva** de profesores, materias, carreras y asignaciones via Excel
-- **Exportacion de horarios** en PDF y Excel
-- **Sistema de backups** automaticos con encriptacion AES-256-GCM
-- **4 roles de usuario** con permisos diferenciados
-- **Interfaz responsiva** con Bootstrap 5 adaptada a cualquier dispositivo
+## Tabla de contenidos
 
-### Roles de Usuario
+- [Características](#características)
+- [Stack tecnológico](#stack-tecnológico)
+- [Requisitos](#requisitos)
+- [Inicio rápido con Docker](#inicio-rápido-con-docker-recomendado)
+- [Instalación local](#instalación-local)
+- [Configuración de entorno](#configuración-de-entorno)
+- [Usuario inicial](#usuario-inicial)
+- [Comandos operativos](#comandos-operativos)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Seguridad](#seguridad)
+- [Despliegue en producción](#despliegue-en-producción-linux)
+- [Licencia](#licencia)
 
-| Rol | Permisos |
-|-----|----------|
-| **Administrador** | Gestion completa: usuarios, carreras, materias, grupos, horarios, configuracion del sistema, backups |
-| **Jefe de Carrera** | Gestion de profesores y horarios de su carrera, generacion de horarios, reportes |
-| **Profesor Tiempo Completo** | Ver horarios asignados, gestionar disponibilidad, ver materias |
-| **Profesor por Asignatura** | Ver horarios y materias asignadas, gestionar disponibilidad |
+## Características
 
-## Instalacion
+- Generación automática de horarios con OR-Tools.
+- Gestión de disponibilidad de profesores por día y bloque horario.
+- Importación masiva de datos académicos (profesores, materias, carreras y asignaciones).
+- Exportación de reportes y horarios en PDF/Excel.
+- Sistema de backups con soporte de cifrado AES-256-GCM.
+- Control de acceso por roles con flujos diferenciados para administración y personal docente.
+- Interfaz web responsive con Bootstrap 5.
 
-### Opcion 1: Docker (Recomendado)
+### Roles de usuario
 
-Solo necesitas Docker instalado. Todo se configura automaticamente:
+| Rol | Alcance principal |
+| --- | --- |
+| Administrador | Gestión completa del sistema: usuarios, catálogos, horarios, configuración y backups |
+| Jefe de carrera | Gestión académica de su carrera, asignaciones y reportes |
+| Profesor tiempo completo | Consulta de carga asignada y administración de disponibilidad |
+| Profesor por asignatura | Consulta de horarios/materias y administración de disponibilidad |
+
+## Stack tecnológico
+
+| Capa | Tecnología |
+| --- | --- |
+| Backend | Flask 2.3, Python 3.12 |
+| Persistencia | SQLite + SQLAlchemy 2.x |
+| Formularios y auth | Flask-WTF, WTForms, Flask-Login |
+| Seguridad | Flask-Limiter, cryptography |
+| Generación de horarios | Google OR-Tools |
+| Exportación | ReportLab, xhtml2pdf, OpenPyXL |
+| Despliegue | Gunicorn, Docker, Docker Compose |
+
+## Requisitos
+
+### Para ejecución con Docker
+
+- Docker 24+ (o compatible con Compose v2)
+- Docker Compose
+
+### Para ejecución local
+
+- Python 3.12 (recomendado)
+- `pip`
+
+## Inicio rápido con Docker (recomendado)
 
 ```bash
 git clone https://github.com/xXPakoGamer10Xx/sistema_login.git
@@ -33,152 +77,133 @@ cd sistema_login
 docker compose up --build
 ```
 
-El sistema estara disponible en `http://localhost:5001`
+Aplicación disponible en: `http://localhost:5001`
 
-> El entrypoint genera automaticamente el archivo `.env` con una `SECRET_KEY` segura si no existe, inicializa la base de datos y ejecuta las migraciones pendientes.
+Notas de arranque del contenedor:
 
-### Opcion 2: Instalacion Manual
+- Si no existe `.env`, se genera automáticamente con una `SECRET_KEY` segura.
+- Se crean carpetas operativas (`instance`, `logs`, `backups`, `static/uploads`, `horarios`).
+- Se ejecuta inicialización del sistema y migraciones al iniciar.
 
-#### Requisitos
-- Python 3.10 o superior
-- pip
-
-#### Pasos
+## Instalación local
 
 ```bash
-# Clonar el proyecto
 git clone https://github.com/xXPakoGamer10Xx/sistema_login.git
 cd sistema_login
 
-# Crear entorno virtual
-python -m venv venv
+python3 -m venv venv
+source venv/bin/activate      # En Windows: venv\Scripts\activate
 
-# Activar entorno virtual
-# macOS/Linux:
-source venv/bin/activate
-# Windows:
-venv\Scripts\activate
-
-# Instalar dependencias
 pip install -r requirements.txt
-
-# Crear archivo de configuracion
 cp .env.example .env
 
-# Inicializar base de datos
 python init_config.py
-
-# Ejecutar
+python migrate_remove_password_temporal.py
 python app.py
 ```
 
-El sistema estara disponible en `http://localhost:5001`
+Aplicación disponible en: `http://localhost:5001`
 
-## Usuario por Defecto
+## Configuración de entorno
 
-Al iniciar por primera vez se crea automaticamente:
+Variables soportadas en `.env`:
+
+| Variable | Descripción | Valor por defecto |
+| --- | --- | --- |
+| `SECRET_KEY` | Clave de sesión y CSRF | Se genera automáticamente si no está definida |
+| `DATABASE_URL` | URL de conexión de base de datos | `sqlite:///sistema_academico.db` |
+| `FLASK_DEBUG` | Modo debug (`0`/`1`) | `0` |
+| `BACKUP_ENCRYPTION_KEY` | Clave hex de 32 bytes para cifrar backups | Vacía (sin cifrado) |
+
+Generar claves:
+
+```bash
+# SECRET_KEY
+python -c "import secrets; print(secrets.token_hex(32))"
+
+# BACKUP_ENCRYPTION_KEY (AES-256)
+python backup_manager.py genkey
+```
+
+## Usuario inicial
+
+En la primera ejecución se crea un usuario administrador por defecto:
 
 | Campo | Valor |
-|-------|-------|
+| --- | --- |
 | Usuario | `admin` |
-| Contrasena | `admin123` |
+| Contraseña | `admin123` |
 | Rol | Administrador |
 
-> Se recomienda cambiar la contrasena inmediatamente despues del primer inicio de sesion.
+Recomendación: cambiar la contraseña inmediatamente después del primer acceso.
 
-## Estructura del Proyecto
+## Comandos operativos
 
+```bash
+# Backups
+python backup_manager.py auto
+python backup_manager.py manual
+python backup_manager.py status
+python backup_manager.py decrypt backups/archivo.enc
+
+# Datos de prueba / limpieza
+python instance/poblar.py
+python instance/limpiar_base_datos.py
 ```
+
+## Estructura del proyecto
+
+```text
 sistema_login/
-├── app.py                          # Aplicacion principal Flask (rutas y logica)
-├── models.py                       # Modelos de base de datos (SQLAlchemy)
-├── forms.py                        # Formularios (WTForms)
-├── utils.py                        # Funciones auxiliares
-├── generador_horarios_mejorado.py  # Motor de generacion de horarios (OR-Tools)
-├── backup_manager.py               # Gestor de backups con encriptacion AES-256-GCM
-├── init_config.py                  # Inicializacion del sistema y BD
-├── migrate_remove_password_temporal.py  # Migracion de seguridad
-├── requirements.txt                # Dependencias de Python
-├── Dockerfile                      # Configuracion del contenedor
-├── docker-compose.yml              # Orquestacion Docker
-├── entrypoint.sh                   # Script de inicio automatico
-├── .env.example                    # Plantilla de variables de entorno
-├── .gitignore                      # Archivos excluidos de git
-├── seguridad.md                    # Documentacion de seguridad
+├── app.py
+├── models.py
+├── forms.py
+├── utils.py
+├── generador_horarios_mejorado.py
+├── backup_manager.py
+├── init_config.py
+├── migrate_remove_password_temporal.py
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── entrypoint.sh
+├── .env.example
+├── seguridad.md
 ├── instance/
-│   ├── poblar.py                   # Script para poblar datos de ejemplo
-│   └── limpiar_base_datos.py       # Script para limpiar la BD
 ├── templates/
-│   ├── base.html                   # Plantilla base
-│   ├── login.html                  # Inicio de sesion
-│   ├── register.html               # Registro de usuarios
-│   ├── dashboard.html              # Panel principal
-│   ├── admin/                      # 44 templates del administrador
-│   ├── jefe/                       # 15 templates del jefe de carrera
-│   ├── profesor/                   # 4 templates del profesor
-│   ├── errors/                     # Paginas de error (404, 500)
-│   └── exports/                    # Plantillas de exportacion PDF
 ├── static/
-│   ├── css/style.css               # Estilos personalizados
-│   ├── images/                     # Imagenes del sistema
-│   └── uploads/                    # Archivos subidos (perfiles, firmas)
-├── logs/                           # Logs de aplicacion y auditoria
-└── backups/                        # Backups de la base de datos
-```
-
-## Configuracion
-
-Las variables de entorno se configuran en el archivo `.env`:
-
-| Variable | Descripcion | Requerida |
-|----------|-------------|-----------|
-| `SECRET_KEY` | Clave secreta para sesiones y CSRF | Se auto-genera si no se define |
-| `DATABASE_URL` | URI de la base de datos | No (default: SQLite) |
-| `FLASK_DEBUG` | Modo debug: 0 o 1 | No (default: 0) |
-| `BACKUP_ENCRYPTION_KEY` | Clave AES-256 para encriptar backups | No |
-
-Generar una clave secreta manualmente:
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
-```
-
-Generar clave de encriptacion para backups:
-```bash
-python backup_manager.py genkey
+├── logs/
+├── backups/
+└── horarios/
 ```
 
 ## Seguridad
 
-El sistema implementa 21 medidas de seguridad documentadas en `seguridad.md`:
+El proyecto incluye controles de seguridad a nivel de aplicación y despliegue, entre ellos:
 
-- **SECRET_KEY** dinamica via variable de entorno
-- **Proteccion CSRF** en formularios y llamadas AJAX (secureFetch)
-- **Rate Limiting** en login (10 intentos/min) y registro (5/min)
-- **Security Headers**: X-Frame-Options, X-Content-Type-Options, HSTS, Referrer-Policy
-- **Cookies seguras**: HttpOnly, SameSite=Lax, timeout de 60 minutos
-- **Validacion de passwords**: minimo 8 caracteres, mayuscula, numero y caracter especial
-- **Proteccion contra Open Redirect** en login
-- **Proteccion contra Path Traversal** en descarga de backups
-- **Prevencion de XSS** con escape de datos en servidor
-- **Validacion de uploads**: tipo MIME y limite de 5MB
-- **Audit logging**: registro de logins, logouts y cambios de contrasena
-- **Backups encriptados** con AES-256-GCM
-- **Docker no-root**: contenedor ejecuta como usuario sin privilegios (`appuser`)
+- Protección CSRF en formularios.
+- Rate limiting en endpoints sensibles (por ejemplo login/registro).
+- Security headers HTTP.
+- Cookies de sesión seguras (`HttpOnly`, `SameSite=Lax`) y expiración de sesión.
+- Validación de contraseñas y controles de autenticación.
+- Validación de uploads (tipo/tamaño).
+- Logging de auditoría.
+- Contenedor Docker ejecutado como usuario no privilegiado.
 
-## Despliegue en Produccion (Linux)
+Detalle técnico y checklist ampliado: `seguridad.md`.
 
-### Con Docker
+## Despliegue en producción (Linux)
+
+### Docker Compose
 
 ```bash
-# Crear archivo de configuracion
 cp .env.example .env
-# Editar .env con valores de produccion (SECRET_KEY, etc.)
+# Editar .env con valores de producción
 
-# Levantar el servicio
 docker compose up --build -d
 ```
 
-### Con Nginx como Proxy Inverso
+### Reverse proxy (Nginx)
 
 ```nginx
 server {
@@ -209,41 +234,6 @@ sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d tu-dominio.com
 ```
 
-## Comandos Utiles
-
-```bash
-# Backup manual de la base de datos
-python backup_manager.py manual
-
-# Ver estado de backups
-python backup_manager.py status
-
-# Poblar base de datos con datos de ejemplo
-python instance/poblar.py
-
-# Limpiar base de datos
-python instance/limpiar_base_datos.py
-
-# Generar clave de encriptacion para backups
-python backup_manager.py genkey
-
-# Desencriptar un backup
-python backup_manager.py decrypt backups/archivo.db.enc
-```
-
-## Tecnologias
-
-| Componente | Tecnologia |
-|------------|-----------|
-| Backend | Flask 2.3, Python 3.12 |
-| Base de datos | SQLite + SQLAlchemy 2.0 |
-| Frontend | Bootstrap 5, JavaScript |
-| Autenticacion | Flask-Login + Flask-WTF (CSRF) |
-| Generacion de horarios | Google OR-Tools |
-| Exportacion | ReportLab (PDF), OpenPyXL (Excel) |
-| Seguridad | Flask-Limiter, cryptography (AES-256-GCM) |
-| Despliegue | Docker, Gunicorn |
-
 ## Licencia
 
-Este proyecto esta bajo la Licencia MIT.
+Este proyecto se distribuye bajo la licencia MIT.
