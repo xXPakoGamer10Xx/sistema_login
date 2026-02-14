@@ -171,14 +171,14 @@
                                 {% endif %}
                             </td>
                             <td class="text-center">
-                                <div class="btn-group" role="group">
+                                <div class="d-flex flex-nowrap justify-content-center gap-1">
                                     <a href="{{ url_for('admin_ver_disponibilidad_profesor', id=profesor.id) }}" 
-                                       class="btn btn-sm btn-info" 
+                                       class="btn btn-sm btn-info text-nowrap" 
                                        title="Ver disponibilidad">
                                         <i class="bi bi-eye"></i> Ver
                                     </a>
                                     <a href="{{ url_for('admin_editar_disponibilidad_profesor', id=profesor.id) }}" 
-                                       class="btn btn-sm btn-primary" 
+                                       class="btn btn-sm btn-primary text-nowrap" 
                                        title="Editar disponibilidad">
                                         <i class="bi bi-pencil"></i> Editar
                                     </a>

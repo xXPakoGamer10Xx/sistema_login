@@ -571,95 +571,291 @@ def procesar_archivo_materias(archivo, carrera_defecto_id=None, restar_horas=0):
 
 def generar_pdf_materias(materias, nombre_carrera=None, cuatrimestre=None, ciclo=None):
     """
-    Generar PDF con lista de materias
+    Generar PDF profesional con lista de materias, agrupadas por carrera.
+    Usa los colores institucionales de la UPTex y el logo oficial.
+    Cada carrera empieza en una hoja nueva.
     """
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.platypus import PageBreak, HRFlowable
+    from collections import OrderedDict
+    import os
+
     # Crear buffer para el PDF
     buffer = io.BytesIO()
-    
-    # Configurar documento
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
-    
-    # Estilos
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        spaceAfter=30,
-        alignment=1,  # Centrado
-        textColor=colors.darkblue
+
+    # Usar landscape para que quepa bien
+    page_w, page_h = landscape(A4)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=90,
+        bottomMargin=40
     )
-    
-    heading_style = ParagraphStyle(
-        'CustomHeading',
-        parent=styles['Heading2'],
-        fontSize=12,
-        spaceAfter=12,
-        textColor=colors.darkblue
-    )
-    
-    # Contenido del PDF
-    elements = []
-    
-    # Título
+
+    # ── Ruta del logo ──
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    logo_path = os.path.join(base_dir, 'static', 'images', 'logo.png')
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(base_dir, 'Logo.png')
+    logo_exists = os.path.exists(logo_path)
+
+    # ── Colores institucionales UPTex ──
+    COLOR_TEAL = colors.HexColor('#00847C')
+    COLOR_TEAL_DARK = colors.HexColor('#006B65')
+    COLOR_NAVY = colors.HexColor('#1B2A4A')
+    COLOR_HEADER_BG = colors.HexColor('#00847C')
+    COLOR_HEADER_TEXT = colors.white
+    COLOR_ROW_EVEN = colors.HexColor('#E8F5F3')
+    COLOR_ROW_ODD = colors.white
+    COLOR_BORDER = colors.HexColor('#B0BEC5')
+    COLOR_SUBTLE = colors.HexColor('#546E7A')
+    COLOR_TOTALS_BG = colors.HexColor('#CFD8DC')
+
+    # ── Construir título ──
     if nombre_carrera and cuatrimestre:
-        titulo = f"Materias - {nombre_carrera} - Cuatrimestre {cuatrimestre}"
+        titulo_pdf = f"Catalogo de Materias - {nombre_carrera} - Cuatrimestre {cuatrimestre}"
     elif nombre_carrera and ciclo:
-        ciclo_nombre = f"Ciclo {ciclo}"
-        if ciclo == 1:
-            ciclo_nombre += " (Cuatrimestres 1, 4, 7, 10)"
-        elif ciclo == 2:
-            ciclo_nombre += " (Cuatrimestres 2, 5, 8)"
-        elif ciclo == 3:
-            ciclo_nombre += " (Cuatrimestres 0, 3, 6, 9)"
-        titulo = f"Materias - {nombre_carrera} - {ciclo_nombre}"
+        ciclo_label = {1: 'Ciclo 1', 2: 'Ciclo 2', 3: 'Ciclo 3'}.get(ciclo, f'Ciclo {ciclo}')
+        titulo_pdf = f"Catalogo de Materias - {nombre_carrera} - {ciclo_label}"
     elif nombre_carrera:
-        titulo = f"Materias - {nombre_carrera}"
+        titulo_pdf = f"Catalogo de Materias - {nombre_carrera}"
     elif cuatrimestre:
-        titulo = f"Materias - Cuatrimestre {cuatrimestre}"
+        titulo_pdf = f"Catalogo de Materias - Cuatrimestre {cuatrimestre}"
     elif ciclo:
-        ciclo_nombre = f"Ciclo {ciclo}"
-        if ciclo == 1:
-            ciclo_nombre += " (Cuatrimestres 1, 4, 7, 10)"
-        elif ciclo == 2:
-            ciclo_nombre += " (Cuatrimestres 2, 5, 8)"
-        elif ciclo == 3:
-            ciclo_nombre += " (Cuatrimestres 0, 3, 6, 9)"
-        titulo = f"Materias - {ciclo_nombre}"
+        ciclo_label = {1: 'Ciclo 1', 2: 'Ciclo 2', 3: 'Ciclo 3'}.get(ciclo, f'Ciclo {ciclo}')
+        titulo_pdf = f"Catalogo de Materias - {ciclo_label}"
     else:
-        titulo = "Materias - Todas las Carreras"
-    
-    elements.append(Paragraph(titulo, title_style))
-    elements.append(Spacer(1, 12))
-    
-    # Información del reporte
-    fecha_reporte = datetime.now().strftime('%d/%m/%Y %H:%M')
-    elements.append(Paragraph(f"Fecha de generación: {fecha_reporte}", styles['Normal']))
-    elements.append(Spacer(1, 20))
-    
+        titulo_pdf = "Catalogo de Materias - Todas las Carreras"
+
+    # Fecha en espanol
+    fecha_reporte = datetime.now().strftime('%d de %B de %Y')
+    meses_es = {'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo', 'April': 'Abril',
+                'May': 'Mayo', 'June': 'Junio', 'July': 'Julio', 'August': 'Agosto',
+                'September': 'Septiembre', 'October': 'Octubre', 'November': 'Noviembre', 'December': 'Diciembre'}
+    for en, es in meses_es.items():
+        fecha_reporte = fecha_reporte.replace(en, es)
+
+    # ── Header/Footer en cada pagina ──
+    def draw_page_header(canvas_obj, doc_obj):
+        canvas_obj.saveState()
+        # Barra superior teal
+        canvas_obj.setFillColor(COLOR_TEAL)
+        canvas_obj.rect(0, page_h - 75, page_w, 75, fill=1, stroke=0)
+        # Linea dorada inferior
+        canvas_obj.setFillColor(colors.HexColor('#FFD600'))
+        canvas_obj.rect(0, page_h - 78, page_w, 3, fill=1, stroke=0)
+        # Logo
+        if logo_exists:
+            try:
+                canvas_obj.drawImage(logo_path, 30, page_h - 67, width=70, height=50,
+                                     preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+        # Titulo centrado
+        canvas_obj.setFillColor(colors.white)
+        canvas_obj.setFont('Helvetica-Bold', 15)
+        canvas_obj.drawCentredString(page_w / 2, page_h - 35, titulo_pdf)
+        # Subtitulo
+        canvas_obj.setFont('Helvetica', 9)
+        canvas_obj.drawCentredString(page_w / 2, page_h - 52, "Area: Direccion Academica")
+        # Fecha
+        canvas_obj.setFont('Helvetica', 8)
+        canvas_obj.drawRightString(page_w - 40, page_h - 52, fecha_reporte)
+        # Pie de pagina
+        canvas_obj.setFillColor(COLOR_SUBTLE)
+        canvas_obj.setFont('Helvetica-Oblique', 7)
+        canvas_obj.drawCentredString(page_w / 2, 20,
+            f"Sistema de Gestion Academica - Universidad Politecnica de Texcoco - Pag. {canvas_obj.getPageNumber()}")
+        canvas_obj.restoreState()
+
+    # ── Estilos de texto ──
+    styles = getSampleStyleSheet()
+
+    section_title_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        leading=18,
+        spaceBefore=4,
+        spaceAfter=8,
+        textColor=COLOR_NAVY,
+        fontName='Helvetica-Bold'
+    )
+
+    stats_style = ParagraphStyle(
+        'Stats',
+        parent=styles['Normal'],
+        fontSize=9,
+        leading=13,
+        alignment=1,
+        textColor=COLOR_SUBTLE,
+        fontName='Helvetica'
+    )
+
+    cell_style = ParagraphStyle(
+        'CellText',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+        fontName='Helvetica'
+    )
+
+    cell_center_style = ParagraphStyle(
+        'CellCenter',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+        fontName='Helvetica',
+        alignment=1
+    )
+
+    # ── Contenido del PDF ──
+    elements = []
+
     if not materias:
+        elements.append(Spacer(1, 30))
         elements.append(Paragraph("No se encontraron materias con los criterios especificados.", styles['Normal']))
     else:
-        # Crear tabla
-        data = crear_tabla_materias(materias)
-        table = Table(data)
-        table.setStyle(get_table_style())
-        
-        elements.append(table)
-    
-    # Pie de página
-    elements.append(Spacer(1, 30))
-    elements.append(Paragraph("Sistema de Gestión Académica", styles['Normal']))
-    
-    # Generar PDF
-    doc.build(elements)
+        # Agrupar materias por carrera
+        materias_por_carrera = OrderedDict()
+        for m in materias:
+            try:
+                carrera_nom = m.get_carrera_nombre()
+            except Exception:
+                carrera_nom = 'Sin carrera'
+            if carrera_nom not in materias_por_carrera:
+                materias_por_carrera[carrera_nom] = []
+            materias_por_carrera[carrera_nom].append(m)
+
+        # Estadisticas globales
+        total_creditos = sum(m.creditos for m in materias)
+        total_horas = sum(m.get_horas_totales() for m in materias)
+        cuatrimestres_set = set(m.cuatrimestre for m in materias)
+
+        stats_text = (
+            f"<b>{len(materias)}</b> materias  |  "
+            f"<b>{len(materias_por_carrera)}</b> carrera(s)  |  "
+            f"<b>{len(cuatrimestres_set)}</b> cuatrimestre(s)  |  "
+            f"<b>{total_creditos}</b> creditos totales  |  "
+            f"<b>{total_horas}</b> horas totales"
+        )
+        elements.append(Paragraph(stats_text, stats_style))
+        elements.append(Spacer(1, 10))
+        elements.append(HRFlowable(width="100%", thickness=1, color=COLOR_TEAL, spaceBefore=0, spaceAfter=6))
+
+        # Anchos de columna (landscape A4 ~ 762pt usable)
+        col_widths = [35, 70, 240, 80, 55, 60, 65, 80]
+
+        for idx_carrera, (carrera_nom, lista_materias) in enumerate(materias_por_carrera.items()):
+            # Salto de pagina entre carreras
+            if idx_carrera > 0:
+                elements.append(PageBreak())
+
+            # Titulo de la carrera
+            elements.append(Paragraph(
+                f'<font color="#00847C">\u25a0</font>  {carrera_nom} '
+                f'<font color="#546E7A" size="10">({len(lista_materias)} materias)</font>',
+                section_title_style
+            ))
+            elements.append(Spacer(1, 4))
+
+            # Ordenar
+            lista_materias.sort(key=lambda m: (m.cuatrimestre, m.nombre))
+
+            # Header de tabla
+            hdr_style = ParagraphStyle('hdr', parent=cell_center_style, textColor=colors.white, fontName='Helvetica-Bold', fontSize=8)
+            hdr_style_l = ParagraphStyle('hdrL', parent=cell_style, textColor=colors.white, fontName='Helvetica-Bold', fontSize=8)
+            header_row = [
+                Paragraph('<b>#</b>', hdr_style),
+                Paragraph('<b>Codigo</b>', hdr_style),
+                Paragraph('<b>Nombre de la Materia</b>', hdr_style_l),
+                Paragraph('<b>Cuatrimestre</b>', hdr_style),
+                Paragraph('<b>Creditos</b>', hdr_style),
+                Paragraph('<b>Hrs/Sem</b>', hdr_style),
+                Paragraph('<b>Hrs Totales</b>', hdr_style),
+                Paragraph('<b>Ciclo Escolar</b>', hdr_style),
+            ]
+            data = [header_row]
+
+            grupo_horas = 0
+            grupo_creditos = 0
+            for i, mat in enumerate(lista_materias, 1):
+                hrs_totales = mat.get_horas_totales()
+                grupo_horas += hrs_totales
+                grupo_creditos += mat.creditos
+                try:
+                    ciclo_info = mat.get_ciclo_escolar()
+                    ciclo_text = ciclo_info.get('nombre', '') if isinstance(ciclo_info, dict) else str(ciclo_info)
+                except Exception:
+                    ciclo_text = ''
+                row = [
+                    Paragraph(str(i), cell_center_style),
+                    Paragraph(f'<b>{mat.codigo}</b>', cell_center_style),
+                    Paragraph(mat.nombre, cell_style),
+                    Paragraph(f'Cuatrimestre {mat.cuatrimestre}', cell_center_style),
+                    Paragraph(str(mat.creditos), cell_center_style),
+                    Paragraph(f'{mat.horas_semanales}h', cell_center_style),
+                    Paragraph(f'{hrs_totales}h', cell_center_style),
+                    Paragraph(ciclo_text, cell_center_style),
+                ]
+                data.append(row)
+
+            # Subtotales
+            totals_row = [
+                '', '',
+                Paragraph(f'<b>Subtotal: {len(lista_materias)} materias</b>', cell_style),
+                '',
+                Paragraph(f'<b>{grupo_creditos}</b>', cell_center_style),
+                '',
+                Paragraph(f'<b>{grupo_horas}h</b>', cell_center_style),
+                ''
+            ]
+            data.append(totals_row)
+
+            table = Table(data, colWidths=col_widths, repeatRows=1)
+
+            style_cmds = [
+                ('BACKGROUND', (0, 0), (-1, 0), COLOR_HEADER_BG),
+                ('TEXTCOLOR', (0, 0), (-1, 0), COLOR_HEADER_TEXT),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('TOPPADDING', (0, 0), (-1, 0), 7),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 7),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('TOPPADDING', (0, 1), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -2), 0.5, COLOR_BORDER),
+                ('LINEBELOW', (0, 0), (-1, 0), 2, COLOR_TEAL_DARK),
+                ('BACKGROUND', (0, -1), (-1, -1), COLOR_TOTALS_BG),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('LINEABOVE', (0, -1), (-1, -1), 1.2, COLOR_TEAL_DARK),
+                ('LINEBELOW', (0, -1), (-1, -1), 1.2, COLOR_TEAL_DARK),
+                ('TOPPADDING', (0, -1), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, -1), (-1, -1), 6),
+            ]
+            for row_idx in range(1, len(data) - 1):
+                bg = COLOR_ROW_EVEN if row_idx % 2 == 0 else COLOR_ROW_ODD
+                style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), bg))
+            table.setStyle(TableStyle(style_cmds))
+            elements.append(table)
+
+    # Generar PDF con header/footer en cada pagina
+    doc.build(elements, onFirstPage=draw_page_header, onLaterPages=draw_page_header)
     pdf = buffer.getvalue()
     buffer.close()
-    
+
     return pdf
 
 def crear_tabla_materias(materias):
-    """Crear datos de tabla para materias"""
+    """Crear datos de tabla para materias (legacy, ya no se usa directamente)"""
     headers = ['Código', 'Nombre', 'Carrera', 'Cuatrimestre', 'Créditos', 'Horas Totales']
     data = [headers]
     

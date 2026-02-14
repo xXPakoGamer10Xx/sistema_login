@@ -8,9 +8,17 @@
             <h3 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i>Horario Semanal por Profesor</h3>
             <small class="text-muted">Vista tipo calendario con horas en el eje vertical</small>
         </div>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
-        </a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('exportar_horarios_profesor_excel') }}" class="btn btn-success btn-sm">
+                <i class="fas fa-file-excel me-1"></i> Descargar Todo Excel
+            </a>
+            <a href="{{ url_for('exportar_horarios_profesor_pdf') }}" class="btn btn-danger btn-sm">
+                <i class="fas fa-file-pdf me-1"></i> Descargar Todo PDF
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
     </div>
 
     <div class="mb-4">

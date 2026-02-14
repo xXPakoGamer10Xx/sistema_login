@@ -1,939 +1,392 @@
 {% extends "base.html" %}
 
-{% block title %}Generación Masiva de Horarios{% endblock %}
+{% block title %}Generar Horarios{% endblock %}
 {% block body_class %}admin-ui{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Encabezado -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h2 class="admin-page-title">
-                        <i class="fas fa-rocket me-2"></i>
-                        Generación Masiva de Horarios
-                    </h2>
-                    <p class="text-muted mt-1">
-                        <i class="fas fa-balance-scale me-1"></i>
-                        Genera horarios para múltiples grupos simultáneamente - <strong>Todos los grupos equilibrados</strong>
-                    </p>
-                </div>
-                <div>
-                    <a href="{{ url_for('generar_horarios_academicos') }}" class="btn btn-outline-info me-2">
-                        <i class="fas fa-user me-1"></i>
-                        Generar Individual
-                    </a>
-                    <a href="{{ url_for('gestionar_horarios_academicos') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left me-1"></i>
-                        Volver al Dashboard
-                    </a>
-                </div>
+<div class="container-fluid py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div class="d-flex align-items-center mb-3 mb-md-0">
+            <a href="{{ url_for('gestionar_horarios_academicos') }}" class="btn btn-outline-secondary me-3">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="mb-0 fw-bold">
+                    <i class="fas fa-calendar-alt text-primary me-2"></i>
+                    Generar Horarios
+                </h2>
+                <p class="text-muted mb-0 small">Seleccione los grupos para generar sus horarios</p>
             </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary" id="btnSeleccionarTodos">
+                <i class="fas fa-check-square me-1"></i>Todos
+            </button>
+            <button type="button" class="btn btn-outline-secondary" id="btnDeseleccionarTodos">
+                <i class="fas fa-square me-1"></i>Ninguno
+            </button>
         </div>
     </div>
 
-    <!-- Alerta informativa -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="alert alert-info">
-                <h5 class="alert-heading">
-                    <i class="fas fa-info-circle me-2"></i>
-                    ¿Por qué generación masiva?
-                </h5>
-                <p class="mb-2"><strong>Ventajas:</strong></p>
-                <ul class="mb-0">
-                    <li><strong>Equidad total:</strong> Todos los grupos compiten por los mejores horarios simultáneamente</li>
-                    <li><strong>Sin privilegios:</strong> No hay grupos "primeros" con buenos horarios y "últimos" con horarios feos</li>
-                    <li><strong>Optimización global:</strong> Mejor distribución de profesores y recursos</li>
-                    <li><strong>Calidad homogénea:</strong> Todos los estudiantes tienen horarios de calidad similar</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <form method="POST" id="form-generar-masivo">
+    <form method="POST" id="formGeneracionMasiva">
         <div class="row">
-            <!-- Panel de selección de grupos -->
             <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header bg-primary text-white admin-section-header">
+                {% for carrera_nombre, cuatrimestres in grupos_organizados.items() %}
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-gradient-primary text-white">
                         <h5 class="mb-0">
-                            <i class="fas fa-users me-2"></i>
-                            Seleccionar Grupos
+                            <i class="fas fa-graduation-cap me-2"></i>
+                            {{ carrera_nombre }}
                         </h5>
                     </div>
                     <div class="card-body">
-                        {% if grupos_organizados %}
-                            <div class="mb-3">
-                                <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="seleccionarTodos()">
-                                    <i class="fas fa-check-double me-1"></i>
-                                    Seleccionar todo
+                        {% for cuatri, grupos in cuatrimestres.items() | sort %}
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-primary mb-3">
+                                <i class="fas fa-layer-group me-1"></i>
+                                Cuatrimestre {{ cuatri }}
+                                <button type="button" class="btn btn-sm btn-outline-primary ms-2 btn-seleccionar-cuatri"
+                                        data-cuatri="{{ cuatri }}" data-carrera="{{ carrera_nombre }}">
+                                    <i class="fas fa-check-double me-1"></i>Todos
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deseleccionarTodos()">
-                                    <i class="fas fa-times me-1"></i>
-                                    Deseleccionar todo
-                                </button>
-                            </div>
-
-                            {% for carrera, cuatrimestres in grupos_organizados.items() %}
-                                <div class="mb-4">
-                                    <h6 class="text-primary border-bottom pb-2">
-                                        <i class="fas fa-graduation-cap me-2"></i>
-                                        {{ carrera }}
-                                    </h6>
-                                    
-                                    {% for cuatri, grupos in cuatrimestres.items() %}
-                                        <div class="ms-3 mb-3">
-                                            <div class="d-flex align-items-center mb-2">
-                                                <strong class="me-2">Cuatrimestre {{ cuatri }}:</strong>
-                                                <button type="button" class="btn btn-sm btn-link" 
-                                                        onclick="toggleCuatrimestre('{{ carrera|replace(' ', '_') }}_{{ cuatri }}')">
-                                                    <i class="fas fa-check-square me-1"></i>
-                                                    Seleccionar todo
-                                                </button>
-                                            </div>
-                                            
-                                            <div class="row g-2">
-                                                {% for grupo in grupos %}
-                                                    <div class="col-md-6">
-                                                        <div class="form-check">
-                                                            <input class="form-check-input grupo-checkbox cuatri-{{ carrera|replace(' ', '_') }}_{{ cuatri }}" 
-                                                                   type="checkbox" 
-                                                                   name="grupos_ids[]" 
-                                                                   value="{{ grupo.id }}" 
-                                                                   id="grupo_{{ grupo.id }}"
-                                                                   onchange="actualizarContador()">
-                                                            <label class="form-check-label" for="grupo_{{ grupo.id }}">
-                                                                <strong>{{ grupo.codigo }}</strong>
-                                                                <small class="text-muted">
-                                                                    - {{ grupo.get_turno_display() }}
-                                                                    ({{ grupo.materias|length }} materias)
-                                                                </small>
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                    {% endfor %}
+                            </h6>
+                            <div class="row g-2">
+                                {% for grupo in grupos %}
+                                <div class="col-6 col-md-4 col-lg-3">
+                                    <div class="form-check grupo-checkbox-container p-3 border rounded hover-shadow"
+                                         style="transition: all 0.2s ease;">
+                                        <input class="form-check-input grupo-checkbox" type="checkbox"
+                                               name="grupos_ids[]" value="{{ grupo.id }}"
+                                               id="grupo_{{ grupo.id }}"
+                                               data-cuatri="{{ cuatri }}" data-carrera="{{ carrera_nombre }}">
+                                        <label class="form-check-label fw-medium" for="grupo_{{ grupo.id }}">
+                                            {{ grupo.codigo }}
+                                        </label>
+                                    </div>
                                 </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                No hay grupos activos disponibles para generar horarios.
+                                {% endfor %}
                             </div>
+                        </div>
+                        {% if not loop.last %}
+                        <hr class="my-3">
                         {% endif %}
+                        {% endfor %}
                     </div>
                 </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No hay grupos disponibles para generar horarios.
+                </div>
+                {% endfor %}
             </div>
 
-            <!-- Panel de configuración -->
             <div class="col-lg-4">
-                <div class="card sticky-top admin-sticky-top-20">
-                    <div class="card-header bg-success text-white admin-section-header">
+                <div class="card shadow-sm border-0 position-sticky" style="top: 20px;">
+                    <div class="card-header bg-dark text-white">
                         <h5 class="mb-0">
                             <i class="fas fa-cog me-2"></i>
                             Configuración
                         </h5>
                     </div>
                     <div class="card-body">
-                        <!-- Contador de grupos seleccionados -->
-                        <div class="alert alert-light border text-center mb-3">
-                            <h3 class="mb-1" id="grupos-contador">0</h3>
-                            <small class="text-muted">grupos seleccionados</small>
+                        <div class="alert alert-info mb-4">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong id="contadorSeleccion">0</strong> grupo(s) seleccionado(s)
                         </div>
 
-                        <!-- Nombre de versión -->
-                        <div class="mb-3">
-                            <label for="version_nombre" class="form-label">
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">
                                 <i class="fas fa-tag me-1"></i>
-                                Nombre de Versión
+                                Nombre de la Versión
                             </label>
-                            <input type="text" 
-                                   class="form-control" 
-                                   id="version_nombre" 
-                                   name="version_nombre"
-                                   placeholder="Ej: Final Cuatri 3">
-                            <small class="text-muted">Opcional. Se genera automáticamente si se deja vacío.</small>
+                            <input type="text" name="version_nombre" class="form-control"
+                                   placeholder="Ej: Versión Final 2025">
                         </div>
 
-                        <!-- Días de la semana -->
-                        <div class="mb-3">
-                            <label for="dias_semana" class="form-label">
-                                <i class="fas fa-calendar-alt me-1"></i>
-                                Días de la Semana
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-calendar-week me-1"></i>
+                                Días de Clase
                             </label>
-                            <select class="form-select" id="dias_semana" name="dias_semana">
+                            <select name="dias_semana" class="form-select">
                                 <option value="lunes_viernes">Lunes a Viernes</option>
                                 <option value="lunes_sabado">Lunes a Sábado</option>
                             </select>
                         </div>
 
-                        <!-- Tiempo estimado -->
-                        <div class="alert alert-warning mb-3">
-                            <small>
-                                <i class="fas fa-clock me-1"></i>
-                                <strong>Tiempo estimado:</strong><br>
-                                <span id="tiempo-estimado">Selecciona grupos</span>
-                            </small>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg" id="btnGenerar">
+                                <i class="fas fa-magic me-2"></i>
+                                Generar Horarios
+                            </button>
                         </div>
-
-                        <!-- Botón de generar -->
-                        <button type="submit" 
-                                class="btn btn-primary w-100"
-                                id="btn-generar"
-                                disabled>
-                            <i class="fas fa-rocket me-2"></i>
-                            Generar Horarios Masivos
-                        </button>
-
-                        <small class="text-muted mt-2 d-block text-center">
-                            <i class="fas fa-shield-alt me-1"></i>
-                            Los horarios anteriores se desactivarán
-                        </small>
                     </div>
                 </div>
             </div>
         </div>
     </form>
-
-    <!-- Resultados -->
-    {% if resultado %}
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card border-{{ 'success' if resultado.exito else 'danger' }}">
-                    <div class="card-header bg-{{ 'success' if resultado.exito else 'danger' }} text-white">
-                        <h5 class="mb-0">
-                            <i class="fas fa-{{ 'check-circle' if resultado.exito else 'exclamation-circle' }} me-2"></i>
-                            Resultados de la Generación Masiva
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-3">{{ resultado.mensaje }}</p>
-                        
-                        {% if resultado.exito %}
-                            <div class="row g-3">
-                                <div class="col-md-3">
-                                    <div class="card bg-light">
-                                        <div class="card-body text-center">
-                                            <h3 class="mb-0">{{ resultado.grupos_procesados }}</h3>
-                                            <small class="text-muted">Grupos Procesados</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card bg-light">
-                                        <div class="card-body text-center">
-                                            <h3 class="mb-0">{{ resultado.horarios_generados }}</h3>
-                                            <small class="text-muted">Horarios Creados</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card bg-light">
-                                        <div class="card-body text-center">
-                                            <h6 class="mb-0">{{ resultado.algoritmo }}</h6>
-                                            <small class="text-muted">Algoritmo Utilizado</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="mt-3 text-center">
-                                <a href="{{ url_for('gestionar_horarios_academicos') }}" class="btn btn-primary">
-                                    <i class="fas fa-eye me-1"></i>
-                                    Ver Horarios Generados
-                                </a>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% endif %}
 </div>
 
-<script>
-function seleccionarTodos() {
-    document.querySelectorAll('.grupo-checkbox').forEach(cb => cb.checked = true);
-    actualizarContador();
-}
-
-function deseleccionarTodos() {
-    document.querySelectorAll('.grupo-checkbox').forEach(cb => cb.checked = false);
-    actualizarContador();
-}
-
-function toggleCuatrimestre(clase) {
-    const checkboxes = document.querySelectorAll('.cuatri-' + clase);
-    const algunoMarcado = Array.from(checkboxes).some(cb => cb.checked);
-    checkboxes.forEach(cb => cb.checked = !algunoMarcado);
-    actualizarContador();
-}
-
-function actualizarContador() {
-    const seleccionados = document.querySelectorAll('.grupo-checkbox:checked').length;
-    document.getElementById('grupos-contador').textContent = seleccionados;
-    
-    const btnGenerar = document.getElementById('btn-generar');
-    btnGenerar.disabled = seleccionados === 0;
-    
-    // Calcular tiempo estimado
-    let tiempo = '';
-    if (seleccionados === 0) {
-        tiempo = 'Selecciona grupos';
-    } else if (seleccionados === 1) {
-        tiempo = '1-3 minutos';
-    } else if (seleccionados <= 3) {
-        tiempo = '3-5 minutos';
-    } else if (seleccionados <= 5) {
-        tiempo = '5-8 minutos';
-    } else {
-        tiempo = '8-10 minutos';
-    }
-    document.getElementById('tiempo-estimado').textContent = tiempo;
-}
-
-// Variable para el intervalo de polling
-let pollingInterval = null;
-
-// Función para mostrar el modal de carga
-function mostrarModalCarga(totalGrupos) {
-    document.getElementById('progresoModal').style.display = 'flex';
-    document.getElementById('progreso-total').textContent = totalGrupos;
-    document.getElementById('progreso-actual').textContent = '0';
-    document.getElementById('progreso-codigo-grupo').textContent = 'Iniciando...';
-    document.getElementById('progreso-horarios').textContent = '0';
-    document.getElementById('progreso-barra').style.width = '5%';
-    document.getElementById('progreso-barra').className = 'progress-bar progress-bar-striped progress-bar-animated bg-success';
-    document.getElementById('modal-resultado').style.display = 'none';
-    document.getElementById('modal-spinner').style.display = 'block';
-}
-
-// Función para hacer polling del progreso
-function iniciarPolling(totalGrupos) {
-    pollingInterval = setInterval(function() {
-        fetch('/api/generacion-progreso')
-            .then(response => response.json())
-            .then(data => {
-                // Actualizar contador
-                const actual = data.grupo_actual || 0;
-                document.getElementById('progreso-actual').textContent = actual;
-                document.getElementById('progreso-codigo-grupo').textContent = data.codigo_grupo || 'Procesando...';
-                document.getElementById('progreso-horarios').textContent = data.horarios_generados || 0;
-                
-                // Actualizar barra de progreso
-                const procesados = data.grupos_procesados || 0;
-                const porcentaje = totalGrupos > 0 ? (procesados / totalGrupos * 100) : 0;
-                document.getElementById('progreso-barra').style.width = Math.max(porcentaje, 5) + '%';
-                
-                // Si completado, mostrar resultado
-                if (data.completado) {
-                    clearInterval(pollingInterval);
-                    pollingInterval = null;
-                    mostrarResultadoFinal(data);
-                }
-            })
-            .catch(error => {
-                console.error('Error al obtener progreso:', error);
-            });
-    }, 500);
-}
-
-// Función para mostrar el resultado final
-function mostrarResultadoFinal(data) {
-    document.getElementById('modal-spinner').style.display = 'none';
-    document.getElementById('progreso-barra').classList.remove('progress-bar-animated');
-    
-    // Cambiar color de la barra
-    if (data.exito) {
-        document.getElementById('progreso-barra').className = 'progress-bar bg-success';
-    } else {
-        document.getElementById('progreso-barra').className = 'progress-bar bg-warning';
-    }
-    document.getElementById('progreso-barra').style.width = '100%';
-    
-    // Mostrar mensaje final
-    document.getElementById('progreso-codigo-grupo').textContent = data.exito ? '✅ Completado' : '⚠️ Parcial';
-    
-    // Mostrar botón de cerrar
-    document.getElementById('modal-resultado').style.display = 'block';
-    
-    // Construir mensaje con errores detallados si existen
-    let mensajeFinal = data.mensaje || '';
-    
-    if (data.errores_detallados && data.errores_detallados.length > 0) {
-        mensajeFinal += '<div class="alert alert-danger mt-3 text-start admin-maxh-200-scroll">';
-        mensajeFinal += '<strong><i class="fas fa-exclamation-triangle me-2"></i>Errores detectados:</strong><ul class="mb-0 mt-2">';
-        
-        data.errores_detallados.forEach(err => {
-            mensajeFinal += `<li><strong>${err.grupo}:</strong> ${err.error}`;
-            
-            // Mostrar errores de validación si existen
-            if (err.errores_validacion && err.errores_validacion.length > 0) {
-                mensajeFinal += '<ul class="small">';
-                err.errores_validacion.slice(0, 5).forEach(valErr => {
-                    mensajeFinal += `<li>${valErr}</li>`;
-                });
-                if (err.errores_validacion.length > 5) {
-                    mensajeFinal += `<li>... y ${err.errores_validacion.length - 5} más</li>`;
-                }
-                mensajeFinal += '</ul>';
-            }
-            mensajeFinal += '</li>';
-        });
-        
-        mensajeFinal += '</ul></div>';
-    }
-    
-    document.getElementById('resultado-mensaje').innerHTML = mensajeFinal;
-}
-
-// Función para cerrar modal y ver resultados
-function cerrarModalYRecargar() {
-    document.getElementById('progresoModal').style.display = 'none';
-    window.location.href = '/admin/horarios-academicos';
-}
-
-// Función para validar disponibilidad de profesores
-function validarDisponibilidadProfesores(gruposIds) {
-    return fetch('/api/validar-disponibilidad-profesores', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ grupos_ids: gruposIds })
-    })
-    .then(response => response.json());
-}
-
-// Función para mostrar el modal de advertencia de disponibilidad
-function mostrarModalDisponibilidad(data, gruposIds) {
-    const profesoresSinDisp = data.profesores_sin_disponibilidad || [];
-
-    if (profesoresSinDisp.length === 0) {
-        // Todos tienen disponibilidad, continuar directamente
-        return true;
-    }
-
-    // Construir lista de profesores
-    let listaHTML = '';
-    profesoresSinDisp.forEach(prof => {
-        listaHTML += `
-            <tr>
-                <td><strong>${prof.nombre}</strong></td>
-                <td><span class="badge bg-${prof.tipo === 'Tiempo Completo' ? 'primary' : 'info'}">${prof.tipo}</span></td>
-                <td>${prof.turno_requerido}</td>
-                <td><small>${prof.materias.join(', ')}</small></td>
-            </tr>
-        `;
-    });
-
-    document.getElementById('lista-profesores-sin-disponibilidad').innerHTML = listaHTML;
-    document.getElementById('cantidad-sin-disponibilidad').textContent = profesoresSinDisp.length;
-    document.getElementById('cantidad-con-disponibilidad').textContent = data.profesores_con_disponibilidad;
-
-    // Guardar grupos para continuar después
-    window.gruposParaGenerar = gruposIds;
-
-    // Mostrar modal
-    document.getElementById('disponibilidadModal').style.display = 'flex';
-
-    return false; // No continuar automáticamente
-}
-
-// Función para continuar con la generación después de ver la advertencia
-function continuarConGeneracion() {
-    document.getElementById('disponibilidadModal').style.display = 'none';
-
-    const gruposIds = window.gruposParaGenerar;
-    const versionNombre = document.getElementById('version_nombre').value;
-    const diasSemana = document.getElementById('dias_semana').value;
-
-    iniciarGeneracionReal(gruposIds, versionNombre, diasSemana);
-}
-
-// Función para cancelar y configurar disponibilidad
-function cancelarYConfigurar() {
-    document.getElementById('disponibilidadModal').style.display = 'none';
-    // Redirigir a la página de disponibilidad
-    window.location.href = '/admin/disponibilidad';
-}
-
-// ============================================
-// FUNCIONES PARA VERIFICAR HORARIOS EXISTENTES
-// ============================================
-
-// Función para verificar si hay horarios existentes
-function verificarHorariosExistentes(gruposIds) {
-    return fetch('/api/verificar-horarios-existentes', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ grupos_ids: gruposIds })
-    })
-    .then(response => response.json());
-}
-
-// Función para mostrar el modal de horarios existentes
-function mostrarModalHorariosExistentes(data, gruposIds) {
-    const gruposConHorarios = data.grupos_con_horarios || [];
-
-    // Construir lista de grupos
-    let listaHTML = '';
-    gruposConHorarios.forEach(grupo => {
-        listaHTML += `
-            <tr>
-                <td><strong>${grupo.codigo}</strong></td>
-                <td>${grupo.carrera}</td>
-                <td class="text-center"><span class="badge bg-warning">${grupo.total_horarios}</span></td>
-            </tr>
-        `;
-    });
-
-    document.getElementById('listaGruposConHorarios').innerHTML = listaHTML;
-    document.getElementById('cantidadConHorarios').textContent = gruposConHorarios.length;
-
-    // Guardar grupos para continuar después
-    window.gruposParaGenerarHorarios = gruposIds;
-
-    // Mostrar modal
-    document.getElementById('horariosExistentesModal').style.display = 'flex';
-}
-
-// Función para cerrar modal de horarios existentes
-function cerrarModalHorariosExistentes() {
-    document.getElementById('horariosExistentesModal').style.display = 'none';
-    // Rehabilitar botón
-    const btnGenerar = document.getElementById('btn-generar');
-    btnGenerar.disabled = false;
-    btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
-}
-
-// Función para continuar después de ver advertencia de horarios existentes
-function continuarConHorariosExistentes() {
-    document.getElementById('horariosExistentesModal').style.display = 'none';
-
-    const gruposIds = window.gruposParaGenerarHorarios;
-
-    // Continuar con la validación de disponibilidad
-    continuarConValidacionDisponibilidad(gruposIds);
-}
-
-// Función intermedia para validar disponibilidad (después de verificar horarios)
-function continuarConValidacionDisponibilidad(gruposIds) {
-    const btnGenerar = document.getElementById('btn-generar');
-    btnGenerar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Validando disponibilidad...';
-
-    validarDisponibilidadProfesores(gruposIds)
-        .then(data => {
-            btnGenerar.disabled = false;
-            btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
-
-            if (data.error) {
-                alert('Error: ' + data.error);
-                return;
-            }
-
-            const profesoresSinDisp = data.profesores_sin_disponibilidad || [];
-            const versionNombre = document.getElementById('version_nombre').value;
-            const diasSemana = document.getElementById('dias_semana').value;
-
-            if (profesoresSinDisp.length > 0) {
-                // Mostrar modal de advertencia de disponibilidad
-                mostrarModalDisponibilidad(data, gruposIds);
-            } else {
-                // Todos tienen disponibilidad, iniciar generación directamente
-                iniciarGeneracionReal(gruposIds, versionNombre, diasSemana);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            btnGenerar.disabled = false;
-            btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
-            alert('Error al validar disponibilidad: ' + error.message);
-        });
-}
-
-// ============================================
-
-// Función que realmente inicia la generación
-function iniciarGeneracionReal(gruposIds, versionNombre, diasSemana) {
-    const btnGenerar = document.getElementById('btn-generar');
-    btnGenerar.disabled = true;
-    btnGenerar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generando...';
-
-    // Mostrar modal de progreso
-    mostrarModalCarga(gruposIds.length);
-
-    // Enviar solicitud AJAX
-    fetch('/api/iniciar-generacion-masiva', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            grupos_ids: gruposIds,
-            version_nombre: versionNombre,
-            dias_semana: diasSemana
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            alert('Error: ' + data.error);
-            document.getElementById('progresoModal').style.display = 'none';
-            btnGenerar.disabled = false;
-            btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
-            return;
-        }
-
-        // Iniciar polling del progreso
-        iniciarPolling(gruposIds.length);
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error al iniciar la generación');
-        document.getElementById('progresoModal').style.display = 'none';
-        btnGenerar.disabled = false;
-        btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
-    });
-}
-
-// Manejar envío del formulario con AJAX
-document.getElementById('btn-generar').addEventListener('click', function(e) {
-    e.preventDefault();
-
-    const checkboxes = document.querySelectorAll('.grupo-checkbox:checked');
-    const seleccionados = checkboxes.length;
-
-    if (seleccionados === 0) {
-        alert('❌ Debe seleccionar al menos un grupo');
-        return;
-    }
-
-    // Recoger IDs de grupos seleccionados
-    const gruposIds = Array.from(checkboxes).map(cb => cb.value);
-
-    // Deshabilitar botón temporalmente
-    const btnGenerar = document.getElementById('btn-generar');
-    btnGenerar.disabled = true;
-    btnGenerar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Verificando...';
-
-    // PASO 1: Verificar si hay horarios existentes
-    verificarHorariosExistentes(gruposIds)
-        .then(data => {
-            if (data.error) {
-                btnGenerar.disabled = false;
-                btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
-                alert('Error: ' + data.error);
-                return;
-            }
-
-            if (data.tiene_horarios_existentes) {
-                // Mostrar modal de advertencia de horarios existentes
-                mostrarModalHorariosExistentes(data, gruposIds);
-            } else {
-                // No hay horarios existentes, continuar con validación de disponibilidad
-                continuarConValidacionDisponibilidad(gruposIds);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            btnGenerar.disabled = false;
-            btnGenerar.innerHTML = '<i class="fas fa-rocket me-2"></i>Generar Horarios Masivos';
-            // En caso de error, continuar con el flujo normal
-            continuarConValidacionDisponibilidad(gruposIds);
-        });
-});
-
-// Inicializar contador
-actualizarContador();
-</script>
-
-<!-- Modal de Progreso -->
-<div id="progresoModal" class="modal-overlay admin-hidden-initial">
-    <div class="modal-progreso">
-        <div class="modal-header-progreso">
-            <h4>
-                <i class="fas fa-rocket me-2"></i>
-                Generando Horarios Masivos
-            </h4>
-        </div>
-        <div class="modal-body-progreso">
-            <!-- Animación de carga -->
-            <div id="modal-spinner" class="text-center mb-3">
-                <div class="spinner-border text-primary admin-spinner-lg" role="status">
-                    <span class="visually-hidden">Generando...</span>
+<div class="modal fade" id="modalProgreso" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-spinner fa-spin me-2"></i>
+                    Generando Horarios...
+                </h5>
+            </div>
+            <div class="modal-body text-center py-5">
+                <div class="progress mb-4 progress-lg">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         id="progressBar" role="progressbar" style="width: 0%">
+                        0%
+                    </div>
                 </div>
+                <p class="mb-2"><strong>Grupo actual:</strong> <span id="grupoActual">-</span></p>
+                <p class="mb-0"><strong>Procesados:</strong> <span id="procesados">0</span> de <span id="totalGrupos">0</span></p>
             </div>
-            
-            <!-- Contador principal -->
-            <div class="text-center mb-3">
-                <h2 class="mb-0">
-                    <span id="progreso-actual" class="text-primary">0</span>
-                    <span class="text-muted">de</span>
-                    <span id="progreso-total" class="text-primary">0</span>
-                </h2>
-                <small class="text-muted">grupos procesados</small>
+            <div class="modal-footer d-none" id="footerResultado">
+                <a href="{{ url_for('gestionar_horarios_academicos') }}" class="btn btn-primary">
+                    <i class="fas fa-table me-2"></i>Ver Horarios Generados
+                </a>
             </div>
-            
-            <!-- Barra de progreso -->
-              <div class="progress mb-3 admin-progress-xl">
-                <div id="progreso-barra" 
-                     class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
-                     role="progressbar" 
-                     style="width: 5%">
-                </div>
-            </div>
-            
-            <!-- Grupo actual -->
-            <div class="alert alert-info text-center py-2 mb-3">
-                <i class="fas fa-cog fa-spin me-2"></i>
-                Procesando: <strong id="progreso-codigo-grupo">Iniciando...</strong>
-            </div>
-            
-            <!-- Horarios generados -->
-            <div class="text-center mb-3">
-                <span class="badge bg-success fs-6">
-                    <i class="fas fa-calendar-check me-1"></i>
-                    <span id="progreso-horarios">0</span> horarios generados
-                </span>
-            </div>
-            
-            <!-- Resultado final (oculto inicialmente) -->
-            <div id="modal-resultado" class="text-center d-none">
-                <p id="resultado-mensaje" class="mb-3"></p>
-                <button onclick="cerrarModalYRecargar()" class="btn btn-primary">
-                    <i class="fas fa-check me-2"></i>Cerrar y Ver Resultados
-                </button>
-            </div>
-            
-            <!-- Mensaje -->
-            <p class="text-center text-muted small mb-0">
-                <i class="fas fa-clock me-1"></i>
-                Por favor espera, no cierres esta página...
-            </p>
         </div>
     </div>
 </div>
 
-<!-- Modal de Advertencia de Disponibilidad -->
-<div id="disponibilidadModal" class="modal-overlay admin-hidden-initial">
-    <div class="modal-disponibilidad">
-        <div class="modal-header-disponibilidad">
-            <h4>
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                Profesores sin Disponibilidad Configurada
-            </h4>
-        </div>
-        <div class="modal-body-disponibilidad">
-            <!-- Resumen -->
-            <div class="row mb-3">
-                <div class="col-6">
-                    <div class="alert alert-warning text-center py-2 mb-0">
-                        <h4 class="mb-0" id="cantidad-sin-disponibilidad">0</h4>
-                        <small>Sin disponibilidad</small>
-                    </div>
+<div class="modal fade" id="modalHorariosExistentes" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Grupos con Horarios Existentes
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning mb-3">
+                    <i class="fas fa-calendar-times me-2"></i>
+                    <strong id="cantidadConHorarios">0</strong> grupo(s) ya tienen horarios generados.
+                    Si continúas, estos serán <strong>reemplazados</strong>.
                 </div>
-                <div class="col-6">
-                    <div class="alert alert-success text-center py-2 mb-0">
-                        <h4 class="mb-0" id="cantidad-con-disponibilidad">0</h4>
-                        <small>Con disponibilidad</small>
-                    </div>
+
+                <div class="table-responsive scroll-container-sm">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>Grupo</th>
+                                <th>Carrera</th>
+                                <th class="text-center">Horarios</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaGruposConHorarios">
+                        </tbody>
+                    </table>
                 </div>
+
+                <small class="text-muted d-block text-center mt-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Al continuar, los horarios actuales serán reemplazados por los nuevos
+                </small>
             </div>
-
-            <!-- Explicación -->
-            <div class="alert alert-info py-2 mb-3">
-                <i class="fas fa-info-circle me-1"></i>
-                <small>Los siguientes profesores no tienen disponibilidad registrada.
-                Si continúas, el sistema <strong>asumirá que están disponibles en todos los horarios</strong> del turno correspondiente.</small>
-            </div>
-
-            <!-- Lista de profesores -->
-            <div class="table-responsive admin-maxh-250-scroll">
-                <table class="table table-sm table-striped mb-0">
-                    <thead class="table-dark sticky-top">
-                        <tr>
-                            <th>Profesor</th>
-                            <th>Tipo</th>
-                            <th>Turno</th>
-                            <th>Materias</th>
-                        </tr>
-                    </thead>
-                    <tbody id="lista-profesores-sin-disponibilidad">
-                        <!-- Se llena dinámicamente -->
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Botones -->
-            <div class="d-flex justify-content-between mt-4">
-                <button onclick="cancelarYConfigurar()" class="btn btn-outline-secondary">
-                    <i class="fas fa-cog me-1"></i>
-                    Configurar Disponibilidad
-                </button>
-                <button onclick="continuarConGeneracion()" class="btn btn-warning">
-                    <i class="fas fa-forward me-1"></i>
-                    Continuar de Todos Modos
-                </button>
-            </div>
-
-            <small class="text-muted d-block text-center mt-3">
-                <i class="fas fa-lightbulb me-1"></i>
-                Recomendación: Configura la disponibilidad para mejores resultados
-            </small>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Advertencia de Horarios Existentes -->
-<div id="horariosExistentesModal" class="modal-overlay admin-hidden-initial">
-    <div class="modal-disponibilidad">
-        <div class="modal-header-disponibilidad admin-warning-gradient-header">
-            <h4>
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                Grupos con Horarios Existentes
-            </h4>
-        </div>
-        <div class="modal-body-disponibilidad">
-            <!-- Resumen -->
-            <div class="alert alert-warning mb-3">
-                <i class="fas fa-calendar-times me-2"></i>
-                <strong id="cantidadConHorarios">0</strong> grupo(s) ya tienen horarios generados.
-                Si continúas, estos serán <strong>reemplazados</strong>.
-            </div>
-
-            <!-- Lista de grupos -->
-            <div class="table-responsive admin-maxh-250-scroll">
-                <table class="table table-sm table-striped mb-0">
-                    <thead class="table-dark sticky-top">
-                        <tr>
-                            <th>Grupo</th>
-                            <th>Carrera</th>
-                            <th class="text-center">Horarios</th>
-                        </tr>
-                    </thead>
-                    <tbody id="listaGruposConHorarios">
-                        <!-- Se llena dinámicamente -->
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Botones -->
-            <div class="d-flex justify-content-between mt-4">
-                <button onclick="cerrarModalHorariosExistentes()" class="btn btn-secondary">
-                    <i class="fas fa-times me-1"></i>
-                    Cancelar
+            <div class="modal-footer d-flex justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Cancelar
                 </button>
                 <div>
                     <a href="{{ url_for('gestionar_horarios_academicos') }}" class="btn btn-info me-2">
-                        <i class="fas fa-eye me-1"></i>
-                        Ir a Ver
+                        <i class="fas fa-eye me-1"></i> Ir a Ver
                     </a>
-                    <button onclick="continuarConHorariosExistentes()" class="btn btn-warning">
-                        <i class="fas fa-forward me-1"></i>
-                        Continuar
+                    <button type="button" class="btn btn-warning" id="btnContinuarConHorarios">
+                        <i class="fas fa-forward me-1"></i> Continuar
                     </button>
                 </div>
             </div>
-
-            <small class="text-muted d-block text-center mt-3">
-                <i class="fas fa-info-circle me-1"></i>
-                Al continuar, los horarios actuales serán reemplazados por los nuevos
-            </small>
         </div>
     </div>
 </div>
 
 <style>
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
 }
-
-.modal-progreso {
-    background: white;
-    border-radius: 15px;
-    width: 90%;
-    max-width: 450px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    animation: slideIn 0.3s ease;
+.hover-shadow:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.1);
+    transform: translateY(-2px);
 }
-
-@keyframes slideIn {
-    from {
-        transform: translateY(-50px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-.modal-header-progreso {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 20px;
-    border-radius: 15px 15px 0 0;
-    text-align: center;
-}
-
-.modal-header-progreso h4 {
-    margin: 0;
-}
-
-.modal-body-progreso {
-    padding: 25px;
-}
-
-.progress {
-    border-radius: 15px;
-    overflow: hidden;
-}
-
-.progress-bar {
-    border-radius: 15px;
-    transition: width 0.3s ease;
-}
-
-/* Estilos para modal de disponibilidad */
-.modal-disponibilidad {
-    background: white;
-    border-radius: 15px;
-    width: 95%;
-    max-width: 650px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    animation: slideIn 0.3s ease;
-}
-
-.modal-header-disponibilidad {
-    background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%);
-    color: white;
-    padding: 20px;
-    border-radius: 15px 15px 0 0;
-    text-align: center;
-}
-
-.modal-header-disponibilidad h4 {
-    margin: 0;
-}
-
-.modal-body-disponibilidad {
-    padding: 25px;
+.grupo-checkbox-container:has(.grupo-checkbox:checked) {
+    background-color: rgba(30, 60, 114, 0.1);
+    border-color: #1e3c72 !important;
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.grupo-checkbox');
+    const contador = document.getElementById('contadorSeleccion');
+    const btnGenerar = document.getElementById('btnGenerar');
+
+    function actualizarContador() {
+        const seleccionados = document.querySelectorAll('.grupo-checkbox:checked').length;
+        contador.textContent = seleccionados;
+        btnGenerar.disabled = seleccionados === 0;
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', actualizarContador));
+
+    document.getElementById('btnSeleccionarTodos').addEventListener('click', function() {
+        checkboxes.forEach(cb => cb.checked = true);
+        actualizarContador();
+    });
+
+    document.getElementById('btnDeseleccionarTodos').addEventListener('click', function() {
+        checkboxes.forEach(cb => cb.checked = false);
+        actualizarContador();
+    });
+
+    document.querySelectorAll('.btn-seleccionar-cuatri').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const cuatri = this.dataset.cuatri;
+            const carrera = this.dataset.carrera;
+            const cbs = document.querySelectorAll(
+                `.grupo-checkbox[data-cuatri="${cuatri}"][data-carrera="${carrera}"]`
+            );
+            const allChecked = Array.from(cbs).every(cb => cb.checked);
+            cbs.forEach(cb => cb.checked = !allChecked);
+            actualizarContador();
+        });
+    });
+
+    let gruposParaGenerar = [];
+
+    function verificarHorariosExistentes(gruposIds) {
+        return fetch('/api/verificar-horarios-existentes', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ grupos_ids: gruposIds })
+        }).then(r => r.json());
+    }
+
+    function mostrarModalHorariosExistentes(data) {
+        const gruposConHorarios = data.grupos_con_horarios || [];
+
+        let listaHTML = '';
+        gruposConHorarios.forEach(grupo => {
+            listaHTML += `
+                <tr>
+                    <td><strong>${grupo.codigo}</strong></td>
+                    <td>${grupo.carrera}</td>
+                    <td class="text-center"><span class="badge bg-warning">${grupo.total_horarios}</span></td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('listaGruposConHorarios').innerHTML = listaHTML;
+        document.getElementById('cantidadConHorarios').textContent = gruposConHorarios.length;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalHorariosExistentes'));
+        modal.show();
+    }
+
+    function iniciarGeneracionReal() {
+        const modal = new bootstrap.Modal(document.getElementById('modalProgreso'));
+        modal.show();
+
+        document.getElementById('totalGrupos').textContent = gruposParaGenerar.length;
+
+        const formData = {
+            grupos_ids: gruposParaGenerar,
+            version_nombre: document.querySelector('[name="version_nombre"]').value,
+            dias_semana: document.querySelector('[name="dias_semana"]').value
+        };
+
+        fetch('/api/iniciar-generacion-masiva', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+                bootstrap.Modal.getInstance(document.getElementById('modalProgreso')).hide();
+                return;
+            }
+
+            const interval = setInterval(() => {
+                fetch('/api/generacion-progreso')
+                .then(r => r.json())
+                .then(progreso => {
+                    const pct = Math.round((progreso.grupos_procesados / progreso.total_grupos) * 100);
+                    document.getElementById('progressBar').style.width = pct + '%';
+                    document.getElementById('progressBar').textContent = pct + '%';
+                    document.getElementById('grupoActual').textContent = progreso.codigo_grupo || '-';
+                    document.getElementById('procesados').textContent = progreso.grupos_procesados;
+
+                    if (progreso.completado) {
+                        clearInterval(interval);
+                        document.getElementById('progressBar').classList.remove('progress-bar-animated');
+                        document.getElementById('progressBar').style.width = '100%';
+                        document.getElementById('progressBar').textContent = 'Completado';
+                        document.getElementById('footerResultado').classList.remove('d-none');
+                    }
+                });
+            }, 1000);
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al iniciar la generación');
+            bootstrap.Modal.getInstance(document.getElementById('modalProgreso')).hide();
+        });
+    }
+
+    document.getElementById('btnContinuarConHorarios').addEventListener('click', function() {
+        bootstrap.Modal.getInstance(document.getElementById('modalHorariosExistentes')).hide();
+        iniciarGeneracionReal();
+    });
+
+    document.getElementById('formGeneracionMasiva').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        gruposParaGenerar = Array.from(document.querySelectorAll('.grupo-checkbox:checked'))
+            .map(cb => cb.value);
+
+        if (gruposParaGenerar.length === 0) {
+            alert('Seleccione al menos un grupo');
+            return;
+        }
+
+        btnGenerar.disabled = true;
+        btnGenerar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Verificando...';
+
+        verificarHorariosExistentes(gruposParaGenerar)
+            .then(data => {
+                btnGenerar.disabled = false;
+                btnGenerar.innerHTML = '<i class="fas fa-magic me-2"></i>Generar Horarios';
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                if (data.tiene_horarios_existentes) {
+                    mostrarModalHorariosExistentes(data);
+                } else {
+                    iniciarGeneracionReal();
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                btnGenerar.disabled = false;
+                btnGenerar.innerHTML = '<i class="fas fa-magic me-2"></i>Generar Horarios';
+                iniciarGeneracionReal();
+            });
+    });
+
+    actualizarContador();
+});
+</script>
 {% endblock %}

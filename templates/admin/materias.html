@@ -288,9 +288,9 @@
 <!-- Formulario oculto para exportar PDF -->
 <form id="exportForm" method="GET" action="{{ url_for('exportar_materias') }}" style="display: none;">
     {{ exportar_form.hidden_tag() }}
-    <input type="hidden" name="carrera_id" value="{{ filtros_activos.carrera or '' }}">
-    <input type="hidden" name="ciclo" value="{{ filtros_activos.ciclo or '' }}">
-    <input type="hidden" name="cuatrimestre" value="{{ filtros_activos.cuatrimestre or '' }}">
+    <input type="hidden" name="carrera" id="export-carrera" value="">
+    <input type="hidden" name="ciclo" id="export-ciclo" value="">
+    <input type="hidden" name="cuatrimestre" id="export-cuatrimestre" value="">
 </form>
 {% endblock %}
 
@@ -430,6 +430,16 @@ function mostrarMensajeSinResultados(totalVisible) {
 }
 
 function exportarPDF() {
+    // Leer los filtros activos de los dropdowns del UI
+    var carreraSelect = document.getElementById('filtro-carrera');
+    var cicloSelect = document.getElementById('filtro-ciclo');
+    var cuatrimestreSelect = document.getElementById('filtro-cuatrimestre');
+
+    // Pasar los valores al formulario oculto
+    document.getElementById('export-carrera').value = carreraSelect ? carreraSelect.value : '';
+    document.getElementById('export-ciclo').value = cicloSelect ? cicloSelect.value : '';
+    document.getElementById('export-cuatrimestre').value = cuatrimestreSelect ? cuatrimestreSelect.value : '';
+
     document.getElementById('exportForm').submit();
 }
 </script>

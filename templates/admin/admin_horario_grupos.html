@@ -430,14 +430,20 @@
             <h3 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Horario Semanal por Grupo</h3>
             <small class="text-muted">Vista tipo calendario con horas en el eje vertical</small>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('exportar_horarios_grupo_excel') }}" class="btn btn-success btn-sm">
+                <i class="fas fa-file-excel me-1"></i> Descargar Todo Excel
+            </a>
+            <a href="{{ url_for('exportar_horarios_grupo_pdf') }}" class="btn btn-danger btn-sm">
+                <i class="fas fa-file-pdf me-1"></i> Descargar Todo PDF
+            </a>
             <button class="btn btn-outline-danger btn-sm" id="toggleSeleccion">
                 <i class="fas fa-check-square me-1"></i> Seleccionar para Eliminar
             </button>
             <button class="btn btn-outline-secondary btn-sm" id="toggleVista" data-vista="normal">
                 <i class="fas fa-compress-alt me-1"></i> Vista Compacta
             </button>
-            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
             </a>
         </div>

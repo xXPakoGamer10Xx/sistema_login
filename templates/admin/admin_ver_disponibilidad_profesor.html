@@ -97,7 +97,7 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-bordered table-hover admin-table">
+                <table class="table table-bordered table-hover admin-table" style="white-space: nowrap;">
                     <thead class="table-dark">
                         <tr>
                             <th class="text-center">Turno</th>
@@ -128,7 +128,7 @@
                             {% for dia in ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'] %}
                             <td class="text-center {% if disponibilidad_dict.get((horario.id, dia)) %}table-success{% endif %}">
                                 {% if disponibilidad_dict.get((horario.id, dia)) %}
-                                <span class="badge bg-success">
+                                <span class="badge bg-success text-nowrap">
                                     <i class="bi bi-check-lg"></i> Disponible
                                 </span>
                                 {% else %}

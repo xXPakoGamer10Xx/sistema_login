@@ -21,16 +21,10 @@
                         <i class="fas fa-arrow-left me-1"></i>
                         Volver al Dashboard
                     </a>
-                    <div class="btn-group" role="group">
-                        <a href="{{ url_for('generar_horarios_academicos') }}" class="btn btn-outline-primary">
-                            <i class="fas fa-user me-1"></i>
-                            Generar Individual
-                        </a>
-                        <a href="{{ url_for('generar_horarios_masivo') }}" class="btn btn-primary">
-                            <i class="fas fa-rocket me-1"></i>
-                            Generar Masivo
-                        </a>
-                    </div>
+                    <a href="{{ url_for('generar_horarios_masivo') }}" class="btn btn-primary">
+                        <i class="fas fa-rocket me-1"></i>
+                        Generar Horarios
+                    </a>
                 </div>
             </div>
         </div>
@@ -218,7 +212,7 @@
                             <i class="fas fa-calendar-times fa-4x text-muted mb-3"></i>
                             <h4 class="text-muted">No hay horarios académicos generados</h4>
                             <p class="text-muted">Comienza generando horarios para los grupos de tu institución.</p>
-                            <a href="{{ url_for('generar_horarios_academicos') }}" class="btn btn-primary">
+                            <a href="{{ url_for('generar_horarios_masivo') }}" class="btn btn-primary">
                                 <i class="fas fa-plus me-1"></i>
                                 Generar Horarios
                             </a>
